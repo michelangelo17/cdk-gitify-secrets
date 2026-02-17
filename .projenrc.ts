@@ -12,7 +12,7 @@ const project = new awscdk.AwsCdkConstructLibrary({
 
   cdkVersion: '2.170.0',
   defaultReleaseBranch: 'main',
-  jsiiVersion: '~5.7.0',
+  jsiiVersion: '~5.9.0',
   projenrcTs: true,
 
   // Runtime deps bundled into the package
