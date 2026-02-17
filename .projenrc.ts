@@ -47,6 +47,9 @@ const project = new awscdk.AwsCdkConstructLibrary({
   // License
   license: 'MIT',
 
+  // Publish to npm via OIDC trusted publishing (no NPM_TOKEN needed)
+  npmTrustedPublishing: true,
+
   // Don't auto-approve PRs
   autoApproveUpgrades: false,
   autoApproveOptions: undefined,
