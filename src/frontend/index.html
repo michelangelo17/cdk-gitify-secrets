@@ -1,0 +1,1009 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secret Review</title>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --surface: #161922;
+        --surface-hover: #1c2030;
+        --border: #2a2e3d;
+        --text: #e1e4ec;
+        --text-dim: #8b8fa3;
+        --accent: #5b8af5;
+        --accent-hover: #4a7ae8;
+        --green: #3fb950;
+        --green-bg: #1a3a2a;
+        --red: #f85149;
+        --red-bg: #3a1a1a;
+        --yellow: #d29922;
+        --yellow-bg: #3a2e1a;
+        --radius: 8px;
+        --mono: 'SF Mono', 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      /* ── Layout ─────────────────────────────────── */
+      .app {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 2rem 1.5rem;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      header h1 {
+        font-size: 1.4rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      header h1 span {
+        font-size: 1.2rem;
+      }
+
+      .user-info {
+        font-size: 0.85rem;
+        color: var(--text-dim);
+      }
+
+      /* ── Auth form ──────────────────────────────── */
+      .auth-container {
+        max-width: 380px;
+        margin: 6rem auto;
+        padding: 2rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+      }
+
+      .auth-container h2 {
+        margin-bottom: 1.5rem;
+        text-align: center;
+        font-size: 1.2rem;
+      }
+
+      .form-group {
+        margin-bottom: 1rem;
+      }
+
+      .form-group label {
+        display: block;
+        font-size: 0.8rem;
+        color: var(--text-dim);
+        margin-bottom: 0.3rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .form-group input {
+        width: 100%;
+        padding: 0.6rem 0.8rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.95rem;
+      }
+
+      .form-group input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      /* ── Tabs ───────────────────────────────────── */
+      .tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .tab {
+        padding: 0.7rem 1.2rem;
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: 0.9rem;
+        border-bottom: 2px solid transparent;
+        transition: all 0.15s;
+      }
+
+      .tab:hover {
+        color: var(--text);
+      }
+
+      .tab.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+
+      .tab-panel {
+        display: none;
+      }
+      .tab-panel.active {
+        display: block;
+      }
+
+      /* ── Filters ────────────────────────────────── */
+      .filters {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+      }
+
+      .filters select,
+      .filters input {
+        padding: 0.45rem 0.7rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.85rem;
+      }
+
+      /* ── Cards ──────────────────────────────────── */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        margin-bottom: 0.75rem;
+        overflow: hidden;
+        transition: border-color 0.15s;
+      }
+
+      .card:hover {
+        border-color: #3a3f52;
+      }
+
+      .card-header {
+        padding: 0.9rem 1.1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        cursor: pointer;
+        gap: 1rem;
+      }
+
+      .card-header:hover {
+        background: var(--surface-hover);
+      }
+
+      .card-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        min-width: 0;
+        flex: 1;
+      }
+
+      .card-title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .card-subtitle {
+        font-size: 0.8rem;
+        color: var(--text-dim);
+      }
+
+      .card-body {
+        display: none;
+        padding: 0 1.1rem 1.1rem;
+        border-top: 1px solid var(--border);
+      }
+
+      .card-body.open {
+        display: block;
+        padding-top: 1rem;
+      }
+
+      /* ── Status badges ─────────────────────────── */
+      .badge {
+        display: inline-block;
+        padding: 0.15rem 0.55rem;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+
+      .badge-pending {
+        background: var(--yellow-bg);
+        color: var(--yellow);
+      }
+      .badge-approved {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .badge-rejected {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+
+      .env-badge {
+        font-size: 0.7rem;
+        padding: 0.1rem 0.45rem;
+        background: #252a3a;
+        color: var(--accent);
+        border-radius: 4px;
+        font-family: var(--mono);
+      }
+
+      /* ── Diff view ─────────────────────────────── */
+      .diff-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        margin: 0.75rem 0;
+      }
+
+      .diff-table th {
+        text-align: left;
+        padding: 0.5rem 0.7rem;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border);
+        font-weight: 500;
+      }
+
+      .diff-table td {
+        padding: 0.45rem 0.7rem;
+        border-bottom: 1px solid #1e2230;
+        word-break: break-all;
+        max-width: 280px;
+      }
+
+      .diff-added {
+        background: rgba(63, 185, 80, 0.08);
+      }
+      .diff-removed {
+        background: rgba(248, 81, 73, 0.08);
+      }
+      .diff-modified {
+        background: rgba(210, 153, 34, 0.06);
+      }
+
+      .diff-added td:first-child::before {
+        content: '+ ';
+        color: var(--green);
+      }
+      .diff-removed td:first-child::before {
+        content: '- ';
+        color: var(--red);
+      }
+      .diff-modified td:first-child::before {
+        content: '~ ';
+        color: var(--yellow);
+      }
+
+      .val-old {
+        color: var(--red);
+        text-decoration: line-through;
+        opacity: 0.7;
+      }
+      .val-new {
+        color: var(--green);
+      }
+
+      /* ── Buttons ────────────────────────────────── */
+      .btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+
+      .btn-approve {
+        background: var(--green-bg);
+        color: var(--green);
+        border: 1px solid rgba(63, 185, 80, 0.3);
+      }
+
+      .btn-approve:hover {
+        background: rgba(63, 185, 80, 0.2);
+      }
+
+      .btn-reject {
+        background: var(--red-bg);
+        color: var(--red);
+        border: 1px solid rgba(248, 81, 73, 0.3);
+      }
+
+      .btn-reject:hover {
+        background: rgba(248, 81, 73, 0.2);
+      }
+
+      .btn-ghost {
+        background: none;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+      }
+
+      .btn-ghost:hover {
+        color: var(--text);
+        border-color: #3a3f52;
+      }
+
+      .actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      /* ── Comment input ─────────────────────────── */
+      .comment-input {
+        width: 100%;
+        padding: 0.5rem 0.7rem;
+        margin-top: 0.75rem;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.85rem;
+        resize: none;
+        font-family: inherit;
+      }
+
+      .comment-input:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+
+      /* ── Empty state ───────────────────────────── */
+      .empty {
+        text-align: center;
+        padding: 3rem 1rem;
+        color: var(--text-dim);
+      }
+
+      .empty-icon {
+        font-size: 2.5rem;
+        margin-bottom: 0.75rem;
+      }
+
+      /* ── Toast ──────────────────────────────────── */
+      .toast {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        padding: 0.8rem 1.2rem;
+        border-radius: var(--radius);
+        font-size: 0.85rem;
+        font-weight: 500;
+        z-index: 1000;
+        opacity: 0;
+        transform: translateY(10px);
+        transition: all 0.3s;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .toast-success {
+        background: var(--green-bg);
+        color: var(--green);
+        border: 1px solid rgba(63, 185, 80, 0.3);
+      }
+      .toast-error {
+        background: var(--red-bg);
+        color: var(--red);
+        border: 1px solid rgba(248, 81, 73, 0.3);
+      }
+
+      /* ── (Reveal toggle removed -- API never returns values) ── */
+      .reveal-toggle-deprecated {
+        display: none;
+        font-size: 0.8rem;
+        color: var(--accent);
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        margin-bottom: 0.5rem;
+      }
+
+      .reveal-toggle-deprecated:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Loading ────────────────────────────────── */
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 3rem;
+        color: var(--text-dim);
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      .spinner {
+        width: 20px;
+        height: 20px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        margin-right: 0.75rem;
+      }
+
+      /* ── Responsive ─────────────────────────────── */
+      @media (max-width: 640px) {
+        .app {
+          padding: 1rem;
+        }
+        .card-header {
+          flex-direction: column;
+        }
+        .filters {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Auth Screen -->
+    <div id="auth-screen" class="auth-container" style="display: none">
+      <h2>🔐 Secret Review</h2>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="auth-email" placeholder="you@company.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="auth-password" />
+      </div>
+      <div style="margin-top: 1.5rem">
+        <button class="btn btn-primary" style="width: 100%" onclick="signIn()">
+          Sign In
+        </button>
+      </div>
+      <p
+        style="
+          text-align: center;
+          margin-top: 1rem;
+          font-size: 0.8rem;
+          color: var(--text-dim);
+        "
+      >
+        Authenticated via Cognito &middot; Connected to your AWS account
+      </p>
+    </div>
+
+    <!-- Main App -->
+    <div id="app-screen" class="app" style="display: none">
+      <header>
+        <h1><span>🔐</span> Secret Review</h1>
+        <div class="user-info">
+          <span id="user-email"></span>
+          &nbsp;&middot;&nbsp;
+          <a
+            href="#"
+            onclick="signOut()"
+            style="
+              color: var(--accent);
+              text-decoration: none;
+              font-size: 0.85rem;
+            "
+            >Sign out</a
+          >
+        </div>
+      </header>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('pending')">
+          Pending Review
+        </button>
+        <button class="tab" onclick="switchTab('history')">History</button>
+        <button class="tab" onclick="switchTab('all')">All Changes</button>
+      </div>
+
+      <!-- Pending tab -->
+      <div id="tab-pending" class="tab-panel active">
+        <div id="pending-list"></div>
+      </div>
+
+      <!-- History tab -->
+      <div id="tab-history" class="tab-panel">
+        <div class="filters">
+          <select id="history-project" onchange="loadHistory()">
+            <option value="">Select project</option>
+          </select>
+          <select id="history-env" onchange="loadHistory()">
+            <option value="">Select environment</option>
+          </select>
+        </div>
+        <div id="history-list"></div>
+      </div>
+
+      <!-- All changes tab -->
+      <div id="tab-all" class="tab-panel">
+        <div class="filters">
+          <select id="all-status" onchange="loadAll()">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+        <div id="all-list"></div>
+      </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+      // ── Config ──────────────────────────────────────
+      let CONFIG = {}
+      let AUTH_TOKEN = null
+      let CURRENT_USER = null
+
+      // ── Init ────────────────────────────────────────
+      async function init() {
+        try {
+          const resp = await fetch('/config.json')
+          CONFIG = await resp.json()
+        } catch {
+          // Fallback: assume config is in localStorage or prompt
+          CONFIG = {
+            apiUrl:
+              localStorage.getItem('sr_api_url') || prompt('Enter API URL:'),
+            userPoolId: localStorage.getItem('sr_pool_id') || '',
+            clientId: localStorage.getItem('sr_client_id') || '',
+            region: localStorage.getItem('sr_region') || 'us-east-1',
+          }
+        }
+
+        AUTH_TOKEN = sessionStorage.getItem('sr_token')
+        CURRENT_USER = sessionStorage.getItem('sr_user')
+
+        if (AUTH_TOKEN) {
+          showApp()
+        } else {
+          document.getElementById('auth-screen').style.display = 'block'
+        }
+      }
+
+      // ── Auth (simplified Cognito SRP via InitiateAuth) ──
+      async function signIn() {
+        const email = document.getElementById('auth-email').value
+        const password = document.getElementById('auth-password').value
+
+        if (!email || !password) return
+
+        try {
+          // Use Cognito InitiateAuth with USER_PASSWORD_AUTH
+          // In production, use SRP or the Amplify SDK. This is simplified.
+          const resp = await fetch(
+            `https://cognito-idp.${CONFIG.region}.amazonaws.com/`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-amz-json-1.1',
+                'X-Amz-Target':
+                  'AWSCognitoIdentityProviderService.InitiateAuth',
+              },
+              body: JSON.stringify({
+                AuthFlow: 'USER_PASSWORD_AUTH',
+                ClientId: CONFIG.clientId,
+                AuthParameters: {
+                  USERNAME: email,
+                  PASSWORD: password,
+                },
+              }),
+            },
+          )
+
+          const data = await resp.json()
+
+          if (data.AuthenticationResult) {
+            AUTH_TOKEN = data.AuthenticationResult.IdToken
+            CURRENT_USER = email
+            sessionStorage.setItem('sr_token', AUTH_TOKEN)
+            sessionStorage.setItem('sr_user', email)
+            showApp()
+          } else {
+            toast('Authentication failed. Check your credentials.', 'error')
+          }
+        } catch (err) {
+          toast('Connection error: ' + err.message, 'error')
+        }
+      }
+
+      function signOut() {
+        sessionStorage.clear()
+        AUTH_TOKEN = null
+        CURRENT_USER = null
+        document.getElementById('app-screen').style.display = 'none'
+        document.getElementById('auth-screen').style.display = 'block'
+      }
+
+      function showApp() {
+        document.getElementById('auth-screen').style.display = 'none'
+        document.getElementById('app-screen').style.display = 'block'
+        document.getElementById('user-email').textContent = CURRENT_USER
+        populateProjectFilters()
+        loadPending()
+      }
+
+      // ── API Calls ───────────────────────────────────
+      async function api(method, path, body) {
+        const opts = {
+          method,
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${AUTH_TOKEN}`,
+          },
+        }
+        if (body) opts.body = JSON.stringify(body)
+
+        const resp = await fetch(CONFIG.apiUrl + path, opts)
+        if (resp.status === 401) {
+          signOut()
+          toast('Session expired. Please sign in again.', 'error')
+          return null
+        }
+        return resp.json()
+      }
+
+      // ── Tab Switching ───────────────────────────────
+      function switchTab(name) {
+        document
+          .querySelectorAll('.tab')
+          .forEach((t) => t.classList.remove('active'))
+        document
+          .querySelectorAll('.tab-panel')
+          .forEach((p) => p.classList.remove('active'))
+        document
+          .querySelector(`[onclick="switchTab('${name}')"]`)
+          .classList.add('active')
+        document.getElementById(`tab-${name}`).classList.add('active')
+
+        if (name === 'pending') loadPending()
+        if (name === 'history') loadHistory()
+        if (name === 'all') loadAll()
+      }
+
+      // ── Populate project/env filters ────────────────
+      function populateProjectFilters() {
+        // Use projects from config.json (injected at deploy time)
+        const projects = CONFIG.projects || {}
+        const projSelect = document.getElementById('history-project')
+        const envSelect = document.getElementById('history-env')
+
+        const allEnvs = new Set()
+
+        Object.keys(projects).forEach((p) => {
+          const opt = document.createElement('option')
+          opt.value = p
+          opt.textContent = p
+          projSelect.appendChild(opt)
+          ;(projects[p] || []).forEach((e) => allEnvs.add(e))
+        })
+
+        allEnvs.forEach((e) => {
+          const opt = document.createElement('option')
+          opt.value = e
+          opt.textContent = e
+          envSelect.appendChild(opt)
+        })
+
+        // Update env options when project changes
+        projSelect.addEventListener('change', () => {
+          const selectedProject = projSelect.value
+          envSelect.innerHTML = '<option value="">Select environment</option>'
+          if (selectedProject && projects[selectedProject]) {
+            projects[selectedProject].forEach((e) => {
+              const opt = document.createElement('option')
+              opt.value = e
+              opt.textContent = e
+              envSelect.appendChild(opt)
+            })
+          }
+        })
+      }
+
+      // ── Load Pending Changes ────────────────────────
+      async function loadPending() {
+        const container = document.getElementById('pending-list')
+        container.innerHTML =
+          '<div class="loading"><div class="spinner"></div>Loading...</div>'
+
+        const data = await api('GET', '/changes?status=pending')
+        if (!data) return
+
+        if (!data.changes || data.changes.length === 0) {
+          container.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">✅</div>
+          <p>No pending changes to review</p>
+        </div>`
+          return
+        }
+
+        container.innerHTML = data.changes
+          .map((c) => changeCard(c, true))
+          .join('')
+      }
+
+      // ── Load History ────────────────────────────────
+      async function loadHistory() {
+        const project = document.getElementById('history-project').value
+        const env = document.getElementById('history-env').value
+        const container = document.getElementById('history-list')
+
+        if (!project || !env) {
+          container.innerHTML =
+            '<div class="empty"><div class="empty-icon">📂</div><p>Select a project and environment</p></div>'
+          return
+        }
+
+        container.innerHTML =
+          '<div class="loading"><div class="spinner"></div>Loading...</div>'
+
+        const data = await api('GET', `/history/${project}/${env}`)
+        if (!data) return
+
+        if (!data.history || data.history.length === 0) {
+          container.innerHTML =
+            '<div class="empty"><div class="empty-icon">📭</div><p>No changes recorded yet</p></div>'
+          return
+        }
+
+        container.innerHTML = data.history
+          .map((c) => changeCard({ ...c, project, env }, false))
+          .join('')
+      }
+
+      // ── Load All Changes ────────────────────────────
+      async function loadAll() {
+        const status = document.getElementById('all-status').value
+        const container = document.getElementById('all-list')
+        container.innerHTML =
+          '<div class="loading"><div class="spinner"></div>Loading...</div>'
+
+        const query = status ? `?status=${status}` : ''
+        const data = await api('GET', `/changes${query}`)
+        if (!data) return
+
+        if (!data.changes || data.changes.length === 0) {
+          container.innerHTML =
+            '<div class="empty"><div class="empty-icon">📭</div><p>No changes found</p></div>'
+          return
+        }
+
+        container.innerHTML = data.changes
+          .map((c) => changeCard(c, false))
+          .join('')
+      }
+
+      // ── Change Card Renderer ────────────────────────
+      function changeCard(change, showActions) {
+        const isPending = change.status === 'pending'
+        const statusClass = `badge-${change.status}`
+        const time = new Date(change.createdAt).toLocaleString()
+
+        return `
+      <div class="card" id="card-${change.changeId}">
+        <div class="card-header" onclick="toggleCard('${change.changeId}')">
+          <div class="card-meta">
+            <div class="card-title">
+              <span class="badge ${statusClass}">${change.status}</span>
+              <span class="env-badge">${change.project}/${change.env}</span>
+              <span style="color:var(--text-dim);font-size:0.8rem;">${change.diffCount || '?'} change${(change.diffCount || 0) !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="card-subtitle">
+              ${change.reason} &nbsp;&middot;&nbsp; ${change.proposedBy} &nbsp;&middot;&nbsp; ${time}
+            </div>
+          </div>
+          <span style="color:var(--text-dim);font-size:0.85rem;">▾</span>
+        </div>
+        <div class="card-body" id="body-${change.changeId}">
+          <div id="diff-${change.changeId}"><div class="loading"><div class="spinner"></div>Loading diff...</div></div>
+          ${
+            showActions && isPending
+              ? `
+            <textarea class="comment-input" id="comment-${change.changeId}" placeholder="Optional comment..." rows="2"></textarea>
+            <div class="actions">
+              <button class="btn btn-approve" onclick="approveChange('${change.changeId}')">Approve &amp; Apply</button>
+              <button class="btn btn-reject" onclick="rejectChange('${change.changeId}')">Reject</button>
+            </div>
+          `
+              : ''
+          }
+          ${
+            change.status === 'approved'
+              ? `
+            <div class="actions" style="margin-top:0.75rem;">
+              <button class="btn btn-ghost" onclick="rollbackChange('${change.changeId}')">↩ Rollback to before this change</button>
+            </div>
+          `
+              : ''
+          }
+        </div>
+      </div>`
+      }
+
+      // ── Toggle card open/close + load diff ──────────
+      async function toggleCard(changeId) {
+        const body = document.getElementById(`body-${changeId}`)
+        const isOpen = body.classList.contains('open')
+
+        if (isOpen) {
+          body.classList.remove('open')
+          return
+        }
+
+        body.classList.add('open')
+
+        const diffContainer = document.getElementById(`diff-${changeId}`)
+        if (diffContainer.dataset.loaded) return
+
+        const data = await api('GET', `/changes/${changeId}/diff`)
+        if (!data || !data.diff) {
+          diffContainer.innerHTML =
+            '<p style="color:var(--text-dim)">Could not load diff</p>'
+          return
+        }
+
+        diffContainer.dataset.loaded = 'true'
+        diffContainer.dataset.changeId = changeId
+
+        renderDiff(diffContainer, data.diff)
+      }
+
+      function renderDiff(container, diff) {
+        if (diff.length === 0) {
+          container.innerHTML =
+            '<p style="color:var(--text-dim);font-size:0.85rem;">No differences</p>'
+          return
+        }
+
+        let html = `
+      <table class="diff-table">
+        <thead>
+          <tr>
+            <th>Variable</th>
+            <th>Change</th>
+          </tr>
+        </thead>
+        <tbody>`
+
+        for (const d of diff) {
+          const rowClass = `diff-${d.type}`
+          const typeLabel = d.type.charAt(0).toUpperCase() + d.type.slice(1)
+
+          html += `
+        <tr class="${rowClass}">
+          <td>${esc(d.key || '-')}</td>
+          <td>${typeLabel}</td>
+        </tr>`
+        }
+
+        html += '</tbody></table>'
+        container.innerHTML = html
+      }
+
+      // ── Actions ─────────────────────────────────────
+      async function approveChange(changeId) {
+        if (!confirm('Apply this change to Secrets Manager?')) return
+
+        const comment =
+          document.getElementById(`comment-${changeId}`)?.value || ''
+        const data = await api('POST', `/changes/${changeId}/approve`, {
+          comment,
+        })
+
+        if (data && data.message) {
+          toast(data.message, 'success')
+          loadPending()
+        } else if (data && data.error) {
+          toast(data.error, 'error')
+        }
+      }
+
+      async function rejectChange(changeId) {
+        const comment =
+          document.getElementById(`comment-${changeId}`)?.value || ''
+        const data = await api('POST', `/changes/${changeId}/reject`, {
+          comment,
+        })
+
+        if (data && data.message) {
+          toast(data.message, 'success')
+          loadPending()
+        } else if (data && data.error) {
+          toast(data.error, 'error')
+        }
+      }
+
+      async function rollbackChange(changeId) {
+        const reason = prompt('Reason for rollback:')
+        if (!reason) return
+
+        const data = await api('POST', '/rollback', { changeId, reason })
+
+        if (data && data.message) {
+          toast(data.message, 'success')
+          loadHistory()
+        } else if (data && data.error) {
+          toast(data.error, 'error')
+        }
+      }
+
+      // ── Helpers ─────────────────────────────────────
+      function esc(str) {
+        const div = document.createElement('div')
+        div.textContent = str
+        return div.innerHTML
+      }
+
+      function toast(msg, type) {
+        const el = document.getElementById('toast')
+        el.className = `toast toast-${type} show`
+        el.textContent = msg
+        setTimeout(() => el.classList.remove('show'), 3500)
+      }
+
+      // ── Boot ────────────────────────────────────────
+      init()
+    </script>
+  </body>
+</html>
