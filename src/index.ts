@@ -3,4 +3,4 @@ export {
   SecretReviewProps,
   ProjectConfig,
   ThrottleConfig,
-} from './secret-review';
+} from './secret-review'

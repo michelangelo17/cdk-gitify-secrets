@@ -1,25 +1,25 @@
-import * as path from 'path';
-import { Duration, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib';
-import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
-import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
-import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
-import * as cloudfrontOrigins from 'aws-cdk-lib/aws-cloudfront-origins';
-import * as cognito from 'aws-cdk-lib/aws-cognito';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
-import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import * as events from 'aws-cdk-lib/aws-events';
-import * as eventsTargets from 'aws-cdk-lib/aws-events-targets';
-import * as iam from 'aws-cdk-lib/aws-iam';
-import * as kms from 'aws-cdk-lib/aws-kms';
-import { Runtime } from 'aws-cdk-lib/aws-lambda';
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import * as s3 from 'aws-cdk-lib/aws-s3';
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
-import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import { Construct } from 'constructs';
+import * as path from 'path'
+import { Duration, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
+import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
+import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
+import * as cloudfrontOrigins from 'aws-cdk-lib/aws-cloudfront-origins'
+import * as cognito from 'aws-cdk-lib/aws-cognito'
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
+import * as ec2 from 'aws-cdk-lib/aws-ec2'
+import * as events from 'aws-cdk-lib/aws-events'
+import * as eventsTargets from 'aws-cdk-lib/aws-events-targets'
+import * as iam from 'aws-cdk-lib/aws-iam'
+import * as kms from 'aws-cdk-lib/aws-kms'
+import { Runtime } from 'aws-cdk-lib/aws-lambda'
+import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as s3 from 'aws-cdk-lib/aws-s3'
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
+import { Construct } from 'constructs'
 
-const HANDLERS_DIR = path.join(__dirname, '..', 'src', 'lambda', 'handlers');
+const HANDLERS_DIR = path.join(__dirname, '..', 'src', 'lambda', 'handlers')
 
 /**
  * Configuration for a project managed by SecretReview.
@@ -28,12 +28,12 @@ export interface ProjectConfig {
   /**
    * Project name, e.g. "backend-api".
    */
-  readonly name: string;
+  readonly name: string
 
   /**
    * Environment names for this project, e.g. ["dev", "staging", "production"].
    */
-  readonly environments: string[];
+  readonly environments: string[]
 }
 
 /**
@@ -43,12 +43,12 @@ export interface ThrottleConfig {
   /**
    * Steady-state request rate limit (requests per second).
    */
-  readonly rateLimit: number;
+  readonly rateLimit: number
 
   /**
    * Maximum burst capacity (requests).
    */
-  readonly burstLimit: number;
+  readonly burstLimit: number
 }
 
 /**
@@ -58,14 +58,14 @@ export interface SecretReviewProps {
   /**
    * Projects and their environments to manage.
    */
-  readonly projects: ProjectConfig[];
+  readonly projects: ProjectConfig[]
 
   /**
    * Bring your own Cognito user pool. If omitted, one is created.
    *
    * @default - a new user pool is created
    */
-  readonly userPool?: cognito.IUserPool;
+  readonly userPool?: cognito.IUserPool
 
   /**
    * Bring your own Cognito user pool client. If omitted, one is created.
@@ -73,42 +73,42 @@ export interface SecretReviewProps {
    *
    * @default - a new client is created
    */
-  readonly userPoolClient?: cognito.IUserPoolClient;
+  readonly userPoolClient?: cognito.IUserPoolClient
 
   /**
    * Deploy the web review dashboard via S3 + CloudFront.
    *
    * @default true
    */
-  readonly deployFrontend?: boolean;
+  readonly deployFrontend?: boolean
 
   /**
    * Allowed CORS origins.
    *
    * @default - CloudFront URL only (or ["*"] if frontend is disabled)
    */
-  readonly allowedOrigins?: string[];
+  readonly allowedOrigins?: string[]
 
   /**
    * Block self-approval of changes.
    *
    * @default true
    */
-  readonly preventSelfApproval?: boolean;
+  readonly preventSelfApproval?: boolean
 
   /**
    * Slack webhook URL for change notifications (optional, not yet implemented).
    *
    * @default - no notifications
    */
-  readonly slackWebhookUrl?: string;
+  readonly slackWebhookUrl?: string
 
   /**
    * Removal policy for stateful resources (DynamoDB, KMS key, Secrets Manager secrets).
    *
    * @default RemovalPolicy.RETAIN
    */
-  readonly removalPolicy?: RemovalPolicy;
+  readonly removalPolicy?: RemovalPolicy
 
   /**
    * VPC to place Lambda functions in.
@@ -118,7 +118,7 @@ export interface SecretReviewProps {
    *
    * @default - Lambdas run outside a VPC (use public AWS endpoints over TLS)
    */
-  readonly vpc?: ec2.IVpc;
+  readonly vpc?: ec2.IVpc
 
   /**
    * API Gateway throttle configuration.
@@ -126,7 +126,7 @@ export interface SecretReviewProps {
    *
    * @default { rateLimit: 10, burstLimit: 20 }
    */
-  readonly throttle?: ThrottleConfig;
+  readonly throttle?: ThrottleConfig
 
   /**
    * AWS account IDs that should have read-only access to the managed secrets.
@@ -138,7 +138,7 @@ export interface SecretReviewProps {
    *
    * @default - no cross-account access
    */
-  readonly crossAccountReadAccess?: string[];
+  readonly crossAccountReadAccess?: string[]
 
   /**
    * Regions to replicate secrets to via Secrets Manager's native replication.
@@ -149,7 +149,7 @@ export interface SecretReviewProps {
    *
    * @default - no replication (single region)
    */
-  readonly replicaRegions?: secretsmanager.ReplicaRegion[];
+  readonly replicaRegions?: secretsmanager.ReplicaRegion[]
 
   /**
    * Require MFA (multi-factor authentication) for Cognito users.
@@ -163,7 +163,7 @@ export interface SecretReviewProps {
    *
    * @default false
    */
-  readonly requireMfa?: boolean;
+  readonly requireMfa?: boolean
 }
 
 /**
@@ -177,68 +177,68 @@ export class SecretReview extends Construct {
   /**
    * The HTTP API Gateway.
    */
-  public readonly api: apigatewayv2.HttpApi;
+  public readonly api: apigatewayv2.HttpApi
 
   /**
    * The API URL.
    */
-  public readonly apiUrl: string;
+  public readonly apiUrl: string
 
   /**
    * The Cognito user pool (created or provided).
    */
-  public readonly userPool: cognito.IUserPool;
+  public readonly userPool: cognito.IUserPool
 
   /**
    * The Cognito user pool client.
    */
-  public readonly userPoolClient: cognito.IUserPoolClient;
+  public readonly userPoolClient: cognito.IUserPoolClient
 
   /**
    * The KMS encryption key used for all secrets.
    */
-  public readonly encryptionKey: kms.IKey;
+  public readonly encryptionKey: kms.IKey
 
   /**
    * The DynamoDB table for change request metadata.
    */
-  public readonly table: dynamodb.ITable;
+  public readonly table: dynamodb.ITable
 
   /**
    * The CloudFront URL for the review dashboard. Undefined if frontend is disabled.
    */
-  public readonly frontendUrl: string | undefined;
+  public readonly frontendUrl: string | undefined
 
   /**
    * The secret name prefix used for Secrets Manager naming.
    */
-  public readonly secretPrefix: string;
+  public readonly secretPrefix: string
 
-  private readonly secrets: Map<string, secretsmanager.ISecret>;
-  private readonly removalPolicy: RemovalPolicy;
-  private readonly realSecretArns: string[];
-  private readonly stagingSecretArn: string;
+  private readonly secrets: Map<string, secretsmanager.ISecret>
+  private readonly removalPolicy: RemovalPolicy
+  private readonly realSecretArns: string[]
+  private readonly stagingSecretArn: string
 
   constructor(scope: Construct, id: string, props: SecretReviewProps) {
-    super(scope, id);
+    super(scope, id)
 
-    this.removalPolicy = props.removalPolicy ?? RemovalPolicy.RETAIN;
-    this.secretPrefix = 'secret-review/';
-    this.secrets = new Map();
+    this.removalPolicy = props.removalPolicy ?? RemovalPolicy.RETAIN
+    this.secretPrefix = 'secret-review/'
+    this.secrets = new Map()
 
     // ─── Input validation ──────────────────────────────────────
-    const NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+    const NAME_PATTERN = /^[a-zA-Z0-9_-]+$/
     for (const project of props.projects) {
       if (!NAME_PATTERN.test(project.name)) {
         throw new Error(
           `Invalid project name "${project.name}". Names must match ${NAME_PATTERN} (alphanumeric, hyphens, underscores only).`,
-        );
+        )
       }
       for (const env of project.environments) {
         if (!NAME_PATTERN.test(env)) {
           throw new Error(
             `Invalid environment name "${env}" in project "${project.name}". Names must match ${NAME_PATTERN} (alphanumeric, hyphens, underscores only).`,
-          );
+          )
         }
       }
     }
@@ -248,16 +248,16 @@ export class SecretReview extends Construct {
       description: 'Encrypts all secrets managed by SecretReview',
       enableKeyRotation: true,
       removalPolicy: this.removalPolicy,
-    });
-    this.encryptionKey = encryptionKey;
+    })
+    this.encryptionKey = encryptionKey
 
     // ─── Secrets Manager: one secret per project/environment ───
-    const projectsConfigMap: Record<string, string[]> = {};
+    const projectsConfigMap: Record<string, string[]> = {}
 
     for (const project of props.projects) {
-      projectsConfigMap[project.name] = project.environments;
+      projectsConfigMap[project.name] = project.environments
       for (const env of project.environments) {
-        const secretId = `${project.name}/${env}`;
+        const secretId = `${project.name}/${env}`
         const secret = new secretsmanager.Secret(
           this,
           `Secret-${project.name}-${env}`,
@@ -270,11 +270,11 @@ export class SecretReview extends Construct {
               ? { replicaRegions: props.replicaRegions }
               : {}),
           },
-        );
+        )
         if (this.removalPolicy === RemovalPolicy.DESTROY) {
-          secret.applyRemovalPolicy(RemovalPolicy.DESTROY);
+          secret.applyRemovalPolicy(RemovalPolicy.DESTROY)
         }
-        this.secrets.set(secretId, secret);
+        this.secrets.set(secretId, secret)
       }
     }
 
@@ -284,10 +284,10 @@ export class SecretReview extends Construct {
       props.crossAccountReadAccess.length > 0
     ) {
       for (const accountId of props.crossAccountReadAccess) {
-        const accountPrincipal = new iam.AccountPrincipal(accountId);
+        const accountPrincipal = new iam.AccountPrincipal(accountId)
 
         // Grant kms:Decrypt on the encryption key for this account
-        encryptionKey.grantDecrypt(accountPrincipal);
+        encryptionKey.grantDecrypt(accountPrincipal)
 
         // Add resource policy to each secret allowing GetSecretValue from this account
         for (const secret of this.secrets.values()) {
@@ -301,7 +301,7 @@ export class SecretReview extends Construct {
               resources: ['*'],
               principals: [accountPrincipal],
             }),
-          );
+          )
         }
       }
     }
@@ -314,33 +314,33 @@ export class SecretReview extends Construct {
       pointInTimeRecovery: true,
       removalPolicy: this.removalPolicy,
       timeToLiveAttribute: 'ttl',
-    });
+    })
 
     changeRequestsTable.addGlobalSecondaryIndex({
       indexName: 'status-index',
       partitionKey: { name: 'status', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
-    });
+    })
 
     changeRequestsTable.addGlobalSecondaryIndex({
       indexName: 'changeId-index',
       partitionKey: { name: 'changeId', type: dynamodb.AttributeType.STRING },
-    });
+    })
 
-    this.table = changeRequestsTable;
+    this.table = changeRequestsTable
 
     // ─── Cognito ───────────────────────────────────────────────
-    let userPool: cognito.IUserPool;
-    let userPoolClient: cognito.IUserPoolClient;
+    let userPool: cognito.IUserPool
+    let userPoolClient: cognito.IUserPoolClient
 
     if (props.userPool) {
-      userPool = props.userPool;
+      userPool = props.userPool
       userPoolClient =
         props.userPoolClient ??
         props.userPool.addClient('SecretReviewClient', {
           authFlows: { userSrp: true, userPassword: true },
           generateSecret: false,
-        });
+        })
     } else {
       const pool = new cognito.UserPool(this, 'UserPool', {
         selfSignUpEnabled: false,
@@ -357,18 +357,18 @@ export class SecretReview extends Construct {
           ? { mfaSecondFactor: { sms: false, otp: true } }
           : {}),
         removalPolicy: this.removalPolicy,
-      });
-      userPool = pool;
+      })
+      userPool = pool
 
       const client = pool.addClient('WebClient', {
         authFlows: { userSrp: true, userPassword: true },
         generateSecret: false,
-      });
-      userPoolClient = client;
+      })
+      userPoolClient = client
     }
 
-    this.userPool = userPool;
-    this.userPoolClient = userPoolClient;
+    this.userPool = userPool
+    this.userPoolClient = userPoolClient
 
     // ─── Shared Lambda environment ─────────────────────────────
     const sharedEnv: Record<string, string> = {
@@ -377,47 +377,47 @@ export class SecretReview extends Construct {
       SECRETS_PREFIX: this.secretPrefix,
       PROJECTS_CONFIG: JSON.stringify(projectsConfigMap),
       PREVENT_SELF_APPROVAL: String(props.preventSelfApproval ?? true),
-    };
+    }
 
     if (props.slackWebhookUrl) {
-      sharedEnv.SLACK_WEBHOOK_URL = props.slackWebhookUrl;
+      sharedEnv.SLACK_WEBHOOK_URL = props.slackWebhookUrl
     }
 
     // ─── VPC Configuration (optional) ────────────────────────────
     let lambdaVpcConfig:
       | {
-        vpc: ec2.IVpc;
-        vpcSubnets: ec2.SubnetSelection;
-        securityGroups: ec2.ISecurityGroup[];
-      }
-      | undefined;
+          vpc: ec2.IVpc
+          vpcSubnets: ec2.SubnetSelection
+          securityGroups: ec2.ISecurityGroup[]
+        }
+      | undefined
 
     if (props.vpc) {
       const lambdaSg = new ec2.SecurityGroup(this, 'LambdaSg', {
         vpc: props.vpc,
         description: 'Security group for SecretReview Lambda functions',
         allowAllOutbound: true,
-      });
+      })
 
       lambdaVpcConfig = {
         vpc: props.vpc,
         vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
         securityGroups: [lambdaSg],
-      };
+      }
 
       props.vpc.addInterfaceEndpoint('SecretsManagerEndpoint', {
         service: ec2.InterfaceVpcEndpointAwsService.SECRETS_MANAGER,
         securityGroups: [lambdaSg],
-      });
+      })
 
       props.vpc.addInterfaceEndpoint('KmsEndpoint', {
         service: ec2.InterfaceVpcEndpointAwsService.KMS,
         securityGroups: [lambdaSg],
-      });
+      })
 
       props.vpc.addGatewayEndpoint('DynamoDbEndpoint', {
         service: ec2.GatewayVpcEndpointAwsService.DYNAMODB,
-      });
+      })
     }
 
     // ─── Lambda Functions (NodejsFunction with esbuild) ────────
@@ -436,57 +436,57 @@ export class SecretReview extends Construct {
         },
         ...(lambdaVpcConfig
           ? {
-            vpc: lambdaVpcConfig.vpc,
-            vpcSubnets: lambdaVpcConfig.vpcSubnets,
-            securityGroups: lambdaVpcConfig.securityGroups,
-          }
+              vpc: lambdaVpcConfig.vpc,
+              vpcSubnets: lambdaVpcConfig.vpcSubnets,
+              securityGroups: lambdaVpcConfig.securityGroups,
+            }
           : {}),
-      });
-    };
+      })
+    }
 
-    const proposeFn = createHandler('Propose', 'propose.ts');
-    const approveFn = createHandler('Approve', 'approve.ts');
-    const rejectFn = createHandler('Reject', 'reject.ts');
-    const listFn = createHandler('List', 'list-changes.ts');
-    const historyFn = createHandler('History', 'history.ts');
-    const rollbackFn = createHandler('Rollback', 'rollback.ts');
-    const diffFn = createHandler('Diff', 'diff.ts');
-    const cleanupFn = createHandler('Cleanup', 'cleanup.ts');
+    const proposeFn = createHandler('Propose', 'propose.ts')
+    const approveFn = createHandler('Approve', 'approve.ts')
+    const rejectFn = createHandler('Reject', 'reject.ts')
+    const listFn = createHandler('List', 'list-changes.ts')
+    const historyFn = createHandler('History', 'history.ts')
+    const rollbackFn = createHandler('Rollback', 'rollback.ts')
+    const diffFn = createHandler('Diff', 'diff.ts')
+    const cleanupFn = createHandler('Cleanup', 'cleanup.ts')
 
     // ─── IAM: Scoped per handler ───────────────────────────────
 
-    const stagingSecretArn = `arn:aws:secretsmanager:*:*:secret:${this.secretPrefix}pending/*`;
-    this.stagingSecretArn = stagingSecretArn;
+    const stagingSecretArn = `arn:aws:secretsmanager:*:*:secret:${this.secretPrefix}pending/*`
+    this.stagingSecretArn = stagingSecretArn
 
     const realSecretArns = Array.from(this.secrets.values()).map(
       (s) => s.secretArn,
-    );
-    this.realSecretArns = realSecretArns;
+    )
+    this.realSecretArns = realSecretArns
 
     // proposeFn: DynamoDB read/write + real secret read + staging secret read (for diff) + KMS
-    changeRequestsTable.grantReadWriteData(proposeFn);
+    changeRequestsTable.grantReadWriteData(proposeFn)
     proposeFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
         resources: realSecretArns,
       }),
-    );
+    )
     proposeFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
         resources: [stagingSecretArn],
       }),
-    );
-    encryptionKey.grantDecrypt(proposeFn);
+    )
+    encryptionKey.grantDecrypt(proposeFn)
 
     // approveFn: DynamoDB read/write + real secret read + staging read/delete + real secret write + KMS
-    changeRequestsTable.grantReadWriteData(approveFn);
+    changeRequestsTable.grantReadWriteData(approveFn)
     approveFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
         resources: realSecretArns,
       }),
-    );
+    )
     approveFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -495,32 +495,32 @@ export class SecretReview extends Construct {
         ],
         resources: [stagingSecretArn],
       }),
-    );
+    )
     approveFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:PutSecretValue'],
         resources: realSecretArns,
       }),
-    );
-    encryptionKey.grantEncryptDecrypt(approveFn);
+    )
+    encryptionKey.grantEncryptDecrypt(approveFn)
 
     // rejectFn: DynamoDB read/write + staging delete
-    changeRequestsTable.grantReadWriteData(rejectFn);
+    changeRequestsTable.grantReadWriteData(rejectFn)
     rejectFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:DeleteSecret'],
         resources: [stagingSecretArn],
       }),
-    );
+    )
 
     // listFn: DynamoDB read only
-    changeRequestsTable.grantReadData(listFn);
+    changeRequestsTable.grantReadData(listFn)
 
     // historyFn: DynamoDB read only (no Secrets Manager access -- reads currentKeys from DDB)
-    changeRequestsTable.grantReadData(historyFn);
+    changeRequestsTable.grantReadData(historyFn)
 
     // rollbackFn: DynamoDB read/write + real secret read/write + KMS (no staging secret access)
-    changeRequestsTable.grantReadWriteData(rollbackFn);
+    changeRequestsTable.grantReadWriteData(rollbackFn)
     rollbackFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -529,20 +529,20 @@ export class SecretReview extends Construct {
         ],
         resources: realSecretArns,
       }),
-    );
-    encryptionKey.grantEncryptDecrypt(rollbackFn);
+    )
+    encryptionKey.grantEncryptDecrypt(rollbackFn)
 
     // diffFn: DynamoDB read only (no secret access -- never returns values)
-    changeRequestsTable.grantReadData(diffFn);
+    changeRequestsTable.grantReadData(diffFn)
 
     // cleanupFn: ListSecrets on * (AWS limitation), DeleteSecret scoped to staging prefix with tag condition
-    changeRequestsTable.grantReadData(cleanupFn);
+    changeRequestsTable.grantReadData(cleanupFn)
     cleanupFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:ListSecrets'],
         resources: ['*'],
       }),
-    );
+    )
     cleanupFn.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
@@ -556,17 +556,17 @@ export class SecretReview extends Construct {
           },
         },
       }),
-    );
+    )
 
     // ─── HTTP API ──────────────────────────────────────────────
-    const stack = Stack.of(this);
-    const issuerUrl = `https://cognito-idp.${stack.region}.amazonaws.com/${userPool.userPoolId}`;
+    const stack = Stack.of(this)
+    const issuerUrl = `https://cognito-idp.${stack.region}.amazonaws.com/${userPool.userPoolId}`
 
     const jwtAuthorizer = new HttpJwtAuthorizer('CognitoAuth', issuerUrl, {
       jwtAudience: [userPoolClient.userPoolClientId],
-    });
+    })
 
-    const throttle = props.throttle ?? { rateLimit: 10, burstLimit: 20 };
+    const throttle = props.throttle ?? { rateLimit: 10, burstLimit: 20 }
 
     const httpApi = new apigatewayv2.HttpApi(this, 'Api', {
       corsPreflight: {
@@ -574,20 +574,20 @@ export class SecretReview extends Construct {
         allowMethods: [apigatewayv2.CorsHttpMethod.ANY],
         allowHeaders: ['Content-Type', 'Authorization'],
       },
-    });
+    })
 
     // Apply throttling to the default stage
     const defaultStage = httpApi.defaultStage?.node
-      .defaultChild as apigatewayv2.CfnStage;
+      .defaultChild as apigatewayv2.CfnStage
     if (defaultStage) {
       defaultStage.defaultRouteSettings = {
         throttlingRateLimit: throttle.rateLimit,
         throttlingBurstLimit: throttle.burstLimit,
-      };
+      }
     }
 
-    this.api = httpApi;
-    this.apiUrl = httpApi.url!;
+    this.api = httpApi
+    this.apiUrl = httpApi.url!
 
     const addRoute = (
       method: apigatewayv2.HttpMethod,
@@ -599,40 +599,40 @@ export class SecretReview extends Construct {
         methods: [method],
         integration: new HttpLambdaIntegration(`${fn.node.id}Int`, fn),
         authorizer: jwtAuthorizer,
-      });
-    };
+      })
+    }
 
-    addRoute(apigatewayv2.HttpMethod.POST, '/changes', proposeFn);
+    addRoute(apigatewayv2.HttpMethod.POST, '/changes', proposeFn)
     addRoute(
       apigatewayv2.HttpMethod.POST,
       '/changes/{changeId}/approve',
       approveFn,
-    );
+    )
     addRoute(
       apigatewayv2.HttpMethod.POST,
       '/changes/{changeId}/reject',
       rejectFn,
-    );
-    addRoute(apigatewayv2.HttpMethod.GET, '/changes', listFn);
-    addRoute(apigatewayv2.HttpMethod.GET, '/changes/{changeId}/diff', diffFn);
-    addRoute(apigatewayv2.HttpMethod.GET, '/history/{project}/{env}', historyFn);
-    addRoute(apigatewayv2.HttpMethod.POST, '/rollback', rollbackFn);
+    )
+    addRoute(apigatewayv2.HttpMethod.GET, '/changes', listFn)
+    addRoute(apigatewayv2.HttpMethod.GET, '/changes/{changeId}/diff', diffFn)
+    addRoute(apigatewayv2.HttpMethod.GET, '/history/{project}/{env}', historyFn)
+    addRoute(apigatewayv2.HttpMethod.POST, '/rollback', rollbackFn)
 
     // ─── Scheduled Cleanup ─────────────────────────────────────
     new events.Rule(this, 'CleanupSchedule', {
       schedule: events.Schedule.rate(Duration.days(1)),
       targets: [new eventsTargets.LambdaFunction(cleanupFn)],
-    });
+    })
 
     // ─── Frontend Hosting (optional) ───────────────────────────
-    const deployFrontend = props.deployFrontend ?? true;
+    const deployFrontend = props.deployFrontend ?? true
 
     if (deployFrontend) {
       const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
         blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
-      });
+      })
 
       const distribution = new cloudfront.Distribution(this, 'FrontendDist', {
         defaultBehavior: {
@@ -651,7 +651,7 @@ export class SecretReview extends Construct {
             responsePagePath: '/index.html',
           },
         ],
-      });
+      })
 
       new s3deploy.BucketDeployment(this, 'DeployFrontend', {
         sources: [
@@ -667,34 +667,34 @@ export class SecretReview extends Construct {
         destinationBucket: frontendBucket,
         distribution,
         distributionPaths: ['/*'],
-      });
+      })
 
-      this.frontendUrl = `https://${distribution.distributionDomainName}`;
+      this.frontendUrl = `https://${distribution.distributionDomainName}`
 
-      new CfnOutput(this, 'FrontendUrl', { value: this.frontendUrl });
+      new CfnOutput(this, 'FrontendUrl', { value: this.frontendUrl })
     }
 
     // ─── Outputs ───────────────────────────────────────────────
-    new CfnOutput(this, 'ApiUrl', { value: this.apiUrl });
-    new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
+    new CfnOutput(this, 'ApiUrl', { value: this.apiUrl })
+    new CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId })
     new CfnOutput(this, 'UserPoolClientId', {
       value: userPoolClient.userPoolClientId,
-    });
-    new CfnOutput(this, 'SecretPrefix', { value: this.secretPrefix });
+    })
+    new CfnOutput(this, 'SecretPrefix', { value: this.secretPrefix })
   }
 
   /**
    * Get an ISecret reference for a project/environment, for use in other stacks.
    */
   public getSecret(project: string, env: string): secretsmanager.ISecret {
-    const key = `${project}/${env}`;
-    const secret = this.secrets.get(key);
+    const key = `${project}/${env}`
+    const secret = this.secrets.get(key)
     if (!secret) {
       throw new Error(
         `Secret not found for ${project}/${env}. Available: ${Array.from(this.secrets.keys()).join(', ')}`,
-      );
+      )
     }
-    return secret;
+    return secret
   }
 
   /**
@@ -705,9 +705,9 @@ export class SecretReview extends Construct {
     env: string,
     grantee: iam.IGrantable,
   ): iam.Grant {
-    const secret = this.getSecret(project, env);
-    this.encryptionKey.grantDecrypt(grantee);
-    return secret.grantRead(grantee);
+    const secret = this.getSecret(project, env)
+    this.encryptionKey.grantDecrypt(grantee)
+    return secret.grantRead(grantee)
   }
 
   /**
@@ -727,14 +727,14 @@ export class SecretReview extends Construct {
         actions: ['secretsmanager:CreateSecret', 'secretsmanager:TagResource'],
         resources: [this.stagingSecretArn],
       }),
-    );
+    )
     grantee.grantPrincipal.addToPrincipalPolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
         resources: [...this.realSecretArns, this.stagingSecretArn],
       }),
-    );
-    this.encryptionKey.grantDecrypt(grantee);
+    )
+    this.encryptionKey.grantDecrypt(grantee)
   }
 
   /**
@@ -750,7 +750,7 @@ export class SecretReview extends Construct {
         actions: ['secretsmanager:GetSecretValue'],
         resources: this.realSecretArns,
       }),
-    );
-    this.encryptionKey.grantDecrypt(grantee);
+    )
+    this.encryptionKey.grantDecrypt(grantee)
   }
 }

@@ -4,9 +4,9 @@ const project = new awscdk.AwsCdkConstructLibrary({
   name: 'cdk-gitify-secrets',
   description:
     'GitOps-style secret management with review workflows, built on AWS Secrets Manager. Deploy as a CDK construct.',
-  author: 'cdk-gitify-secrets',
-  authorAddress: 'https://github.com/cdk-gitify-secrets',
-  repositoryUrl: 'https://github.com/cdk-gitify-secrets/cdk-gitify-secrets',
+  author: 'Michelangelo Markus',
+  authorAddress: 'https://github.com/michelangelo17',
+  repositoryUrl: 'https://github.com/michelangelo17/cdk-gitify-secrets',
 
   packageManager: javascript.NodePackageManager.NPM,
 

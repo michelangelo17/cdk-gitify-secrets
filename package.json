@@ -33,8 +33,8 @@
     "projen": "npx projen"
   },
   "author": {
-    "name": "cdk-gitify-secrets",
-    "url": "https://github.com/cdk-gitify-secrets",
+    "name": "Michelangelo Markus",
+    "url": "https://github.com/michelangelo17",
     "organization": false
   },
   "devDependencies": {
