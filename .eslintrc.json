@@ -214,6 +214,29 @@
   "overrides": [
     {
       "files": [
+        "*.ts"
+      ],
+      "rules": {
+        "@stylistic/semi": [
+          "error",
+          "never"
+        ],
+        "@stylistic/member-delimiter-style": [
+          "error",
+          {
+            "multiline": {
+              "delimiter": "none"
+            },
+            "singleline": {
+              "delimiter": "semi",
+              "requireLast": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "files": [
         ".projenrc.ts"
       ],
       "rules": {

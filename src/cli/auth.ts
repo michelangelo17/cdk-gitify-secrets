@@ -128,7 +128,7 @@ export async function apiRequest(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+    'Authorization': `Bearer ${token}`,
   }
 
   const fetchOpts: RequestInit = {

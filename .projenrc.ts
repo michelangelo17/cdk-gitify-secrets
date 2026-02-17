@@ -52,6 +52,21 @@ const project = new awscdk.AwsCdkConstructLibrary({
   autoApproveOptions: undefined,
 })
 
+// Match Prettier style: no semicolons, consistent interface member delimiters
+project.eslint?.addOverride({
+  files: ['*.ts'],
+  rules: {
+    '@stylistic/semi': ['error', 'never'],
+    '@stylistic/member-delimiter-style': [
+      'error',
+      {
+        multiline: { delimiter: 'none' },
+        singleline: { delimiter: 'semi', requireLast: false },
+      },
+    ],
+  },
+})
+
 // Add CLI bin entry
 project.addBins({ sr: 'lib/cli/index.js' })
 

@@ -386,10 +386,10 @@ export class SecretReview extends Construct {
     // ─── VPC Configuration (optional) ────────────────────────────
     let lambdaVpcConfig:
       | {
-          vpc: ec2.IVpc
-          vpcSubnets: ec2.SubnetSelection
-          securityGroups: ec2.ISecurityGroup[]
-        }
+        vpc: ec2.IVpc
+        vpcSubnets: ec2.SubnetSelection
+        securityGroups: ec2.ISecurityGroup[]
+      }
       | undefined
 
     if (props.vpc) {
@@ -436,10 +436,10 @@ export class SecretReview extends Construct {
         },
         ...(lambdaVpcConfig
           ? {
-              vpc: lambdaVpcConfig.vpc,
-              vpcSubnets: lambdaVpcConfig.vpcSubnets,
-              securityGroups: lambdaVpcConfig.securityGroups,
-            }
+            vpc: lambdaVpcConfig.vpc,
+            vpcSubnets: lambdaVpcConfig.vpcSubnets,
+            securityGroups: lambdaVpcConfig.securityGroups,
+          }
           : {}),
       })
     }

@@ -1,5 +1,5 @@
-import { Command } from 'commander';
-import { loadConfig, saveConfig, getConfigPath } from '../auth';
+import { Command } from 'commander'
+import { loadConfig, saveConfig, getConfigPath } from '../auth'
 
 export function registerConfigureCommand(program: Command): void {
   program
@@ -16,15 +16,15 @@ export function registerConfigureCommand(program: Command): void {
       'Secret name prefix (default: secret-review/)',
     )
     .action((opts) => {
-      const config = loadConfig();
+      const config = loadConfig()
 
-      if (opts.apiUrl) config.apiUrl = opts.apiUrl;
-      if (opts.region) config.region = opts.region;
-      if (opts.clientId) config.clientId = opts.clientId;
-      if (opts.userPoolId) config.userPoolId = opts.userPoolId;
-      if (opts.secretPrefix) config.secretPrefix = opts.secretPrefix;
+      if (opts.apiUrl) config.apiUrl = opts.apiUrl
+      if (opts.region) config.region = opts.region
+      if (opts.clientId) config.clientId = opts.clientId
+      if (opts.userPoolId) config.userPoolId = opts.userPoolId
+      if (opts.secretPrefix) config.secretPrefix = opts.secretPrefix
 
-      saveConfig(config);
-      console.log(`Config saved to ${getConfigPath()}`);
-    });
+      saveConfig(config)
+      console.log(`Config saved to ${getConfigPath()}`)
+    })
 }

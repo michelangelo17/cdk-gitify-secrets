@@ -1,24 +1,24 @@
-import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import {
   DynamoDBDocumentClient,
   PutCommand,
   GetCommand,
   QueryCommand,
   UpdateCommand,
-} from '@aws-sdk/lib-dynamodb';
-import type { ChangeRequest } from './types';
+} from '@aws-sdk/lib-dynamodb'
+import type { ChangeRequest } from './types'
 
-const client = new DynamoDBClient({});
-const docClient = DynamoDBDocumentClient.from(client);
+const client = new DynamoDBClient({})
+const docClient = DynamoDBDocumentClient.from(client)
 
-const TABLE_NAME = process.env.TABLE_NAME!;
+const TABLE_NAME = process.env.TABLE_NAME!
 
 export function buildPk(project: string, env: string): string {
-  return `PROJECT#${project}#ENV#${env}`;
+  return `PROJECT#${project}#ENV#${env}`
 }
 
 export function buildSk(createdAt: string, changeId: string): string {
-  return `CHANGE#${createdAt}#${changeId}`;
+  return `CHANGE#${createdAt}#${changeId}`
 }
 
 export async function putChange(change: ChangeRequest): Promise<void> {
@@ -27,7 +27,7 @@ export async function putChange(change: ChangeRequest): Promise<void> {
       TableName: TABLE_NAME,
       Item: change,
     }),
-  );
+  )
 }
 
 export async function getChange(
@@ -39,8 +39,8 @@ export async function getChange(
       TableName: TABLE_NAME,
       Key: { pk, sk },
     }),
-  );
-  return result.Item as ChangeRequest | undefined;
+  )
+  return result.Item as ChangeRequest | undefined
 }
 
 export async function getChangeById(
@@ -54,13 +54,13 @@ export async function getChangeById(
       ExpressionAttributeValues: { ':cid': changeId },
       Limit: 1,
     }),
-  );
-  return result.Items?.[0] as ChangeRequest | undefined;
+  )
+  return result.Items?.[0] as ChangeRequest | undefined
 }
 
 export interface PaginatedResult {
-  items: ChangeRequest[];
-  lastEvaluatedKey?: Record<string, unknown>;
+  items: ChangeRequest[]
+  lastEvaluatedKey?: Record<string, unknown>
 }
 
 export async function queryChangesByProject(
@@ -69,7 +69,7 @@ export async function queryChangesByProject(
   limit?: number,
   exclusiveStartKey?: Record<string, unknown>,
 ): Promise<PaginatedResult> {
-  const pk = buildPk(project, env);
+  const pk = buildPk(project, env)
   const result = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -79,13 +79,13 @@ export async function queryChangesByProject(
       ...(limit ? { Limit: limit } : {}),
       ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
     }),
-  );
+  )
   return {
     items: (result.Items ?? []) as ChangeRequest[],
     lastEvaluatedKey: result.LastEvaluatedKey as
       | Record<string, unknown>
       | undefined,
-  };
+  }
 }
 
 export async function queryChangesByStatus(
@@ -104,18 +104,18 @@ export async function queryChangesByStatus(
       ...(limit ? { Limit: limit } : {}),
       ...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
     }),
-  );
+  )
   return {
     items: (result.Items ?? []) as ChangeRequest[],
     lastEvaluatedKey: result.LastEvaluatedKey as
       | Record<string, unknown>
       | undefined,
-  };
+  }
 }
 
 export interface UpdateChangeStatusExtras {
-  previousVersionId?: string;
-  currentKeys?: string[];
+  previousVersionId?: string
+  currentKeys?: string[]
 }
 
 export async function updateChangeStatus(
@@ -126,32 +126,32 @@ export async function updateChangeStatus(
   comment?: string,
   extras?: UpdateChangeStatusExtras,
 ): Promise<void> {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString()
 
   const expressionParts = [
     '#s = :status',
     'reviewedBy = :reviewedBy',
     'reviewedAt = :reviewedAt',
-  ];
+  ]
   const expressionValues: Record<string, unknown> = {
     ':status': status,
     ':reviewedBy': reviewedBy,
     ':reviewedAt': now,
-  };
+  }
 
   if (comment) {
-    expressionParts.push('comment = :comment');
-    expressionValues[':comment'] = comment;
+    expressionParts.push('comment = :comment')
+    expressionValues[':comment'] = comment
   }
 
   if (extras?.previousVersionId) {
-    expressionParts.push('previousVersionId = :prevVer');
-    expressionValues[':prevVer'] = extras.previousVersionId;
+    expressionParts.push('previousVersionId = :prevVer')
+    expressionValues[':prevVer'] = extras.previousVersionId
   }
 
   if (extras?.currentKeys) {
-    expressionParts.push('currentKeys = :curKeys');
-    expressionValues[':curKeys'] = extras.currentKeys;
+    expressionParts.push('currentKeys = :curKeys')
+    expressionValues[':curKeys'] = extras.currentKeys
   }
 
   await docClient.send(
@@ -162,5 +162,5 @@ export async function updateChangeStatus(
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: expressionValues,
     }),
-  );
+  )
 }
