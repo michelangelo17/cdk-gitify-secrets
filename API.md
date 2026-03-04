@@ -369,11 +369,11 @@ const secretReviewProps: SecretReviewProps = { ... }
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.allowedOrigins">allowedOrigins</a></code> | <code>string[]</code> | Allowed CORS origins. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.crossAccountReadAccess">crossAccountReadAccess</a></code> | <code>string[]</code> | AWS account IDs that should have read-only access to the managed secrets. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.deployFrontend">deployFrontend</a></code> | <code>boolean</code> | Deploy the web review dashboard via S3 + CloudFront. |
+| <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.enableProjectScoping">enableProjectScoping</a></code> | <code>boolean</code> | Enable per-project access control using Cognito user groups. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.preventSelfApproval">preventSelfApproval</a></code> | <code>boolean</code> | Block self-approval of changes. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.removalPolicy">removalPolicy</a></code> | <code>aws-cdk-lib.RemovalPolicy</code> | Removal policy for stateful resources (DynamoDB, KMS key, Secrets Manager secrets). |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.replicaRegions">replicaRegions</a></code> | <code>aws-cdk-lib.aws_secretsmanager.ReplicaRegion[]</code> | Regions to replicate secrets to via Secrets Manager's native replication. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.requireMfa">requireMfa</a></code> | <code>boolean</code> | Require MFA (multi-factor authentication) for Cognito users. |
-| <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.slackWebhookUrl">slackWebhookUrl</a></code> | <code>string</code> | Slack webhook URL for change notifications (optional, not yet implemented). |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.throttle">throttle</a></code> | <code><a href="#cdk-gitify-secrets.ThrottleConfig">ThrottleConfig</a></code> | API Gateway throttle configuration. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.userPool">userPool</a></code> | <code>aws-cdk-lib.aws_cognito.IUserPool</code> | Bring your own Cognito user pool. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.userPoolClient">userPoolClient</a></code> | <code>aws-cdk-lib.aws_cognito.IUserPoolClient</code> | Bring your own Cognito user pool client. |
@@ -437,6 +437,30 @@ Deploy the web review dashboard via S3 + CloudFront.
 
 ---
 
+##### `enableProjectScoping`<sup>Optional</sup> <a name="enableProjectScoping" id="cdk-gitify-secrets.SecretReviewProps.property.enableProjectScoping"></a>
+
+```typescript
+public readonly enableProjectScoping: boolean;
+```
+
+- *Type:* boolean
+- *Default:* false
+
+Enable per-project access control using Cognito user groups.
+
+When enabled, a Cognito group is created for each project (named after the project).
+Users must be added to a project's group to propose, approve, reject,
+rollback, or view history for that project. The `list-changes` endpoint
+filters results to only show changes for the caller's groups.
+
+Manage group membership via the AWS CLI:
+```
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id <UserPoolId> --username alice@company.com --group-name backend-api
+```
+
+---
+
 ##### `preventSelfApproval`<sup>Optional</sup> <a name="preventSelfApproval" id="cdk-gitify-secrets.SecretReviewProps.property.preventSelfApproval"></a>
 
 ```typescript
@@ -497,19 +521,6 @@ dashboard users can approve, reject, or rollback secret changes.
 
 Only applies when the construct creates its own user pool (i.e., `userPool` is not provided).
 If you bring your own user pool, configure MFA on it directly.
-
----
-
-##### `slackWebhookUrl`<sup>Optional</sup> <a name="slackWebhookUrl" id="cdk-gitify-secrets.SecretReviewProps.property.slackWebhookUrl"></a>
-
-```typescript
-public readonly slackWebhookUrl: string;
-```
-
-- *Type:* string
-- *Default:* no notifications
-
-Slack webhook URL for change notifications (optional, not yet implemented).
 
 ---
 

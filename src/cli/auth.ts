@@ -129,6 +129,16 @@ export const apiRequest = async (
   const token = await ensureValidToken(config)
   const url = `${config.apiUrl!.replace(/\/$/, '')}${urlPath}`
 
+  if (!url.startsWith('https://') && !url.startsWith('http://localhost')) {
+    console.error(
+      'Refusing to send credentials over insecure HTTP.',
+    )
+    console.error(
+      'Your API URL must use HTTPS. Update via: sr configure',
+    )
+    process.exit(1)
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`,

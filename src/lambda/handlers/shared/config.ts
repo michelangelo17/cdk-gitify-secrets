@@ -10,4 +10,5 @@ export const config = {
   secretsPrefix: process.env.SECRETS_PREFIX ?? 'secret-review/',
   preventSelfApproval: process.env.PREVENT_SELF_APPROVAL !== 'false',
   projectsConfig: JSON.parse(process.env.PROJECTS_CONFIG ?? '{}') as Record<string, string[]>,
+  enableProjectScoping: process.env.ENABLE_PROJECT_SCOPING === 'true',
 } as const

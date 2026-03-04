@@ -2,6 +2,8 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
+import { getUserGroups } from './shared/auth'
+import { config } from './shared/config'
 import { queryChangesByStatus } from './shared/dynamo'
 import { ok, error } from './shared/response'
 
@@ -54,6 +56,11 @@ export const handler = async (
       changes = [...pending.items, ...approved.items, ...rejected.items]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, limit)
+    }
+
+    if (config.enableProjectScoping) {
+      const groups = getUserGroups(event)
+      changes = changes.filter((c) => groups.includes(c.project))
     }
 
     const summaries = changes.map((c) => ({

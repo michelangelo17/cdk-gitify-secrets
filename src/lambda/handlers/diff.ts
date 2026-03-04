@@ -2,6 +2,7 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
+import { assertProjectAccess } from './shared/auth'
 import { getChangeById } from './shared/dynamo'
 import { ok, error } from './shared/response'
 
@@ -18,6 +19,9 @@ export const handler = async (
     if (!change) {
       return error(404, 'Change not found')
     }
+
+    const accessError = assertProjectAccess(event, change.project)
+    if (accessError) return error(403, accessError)
 
     return ok({
       changeId: change.changeId,

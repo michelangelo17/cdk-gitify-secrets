@@ -2,6 +2,8 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
+import { assertProjectAccess } from './shared/auth'
+import { config } from './shared/config'
 import { queryChangesByProject } from './shared/dynamo'
 import { ok, error } from './shared/response'
 
@@ -18,6 +20,14 @@ export const handler = async (
     if (!project || !env) {
       return error(400, 'Missing project or env')
     }
+
+    const allowedEnvs = config.projectsConfig[project]
+    if (!allowedEnvs || !allowedEnvs.includes(env)) {
+      return error(400, `Invalid project/environment: ${project}/${env}`)
+    }
+
+    const accessError = assertProjectAccess(event, project)
+    if (accessError) return error(403, accessError)
 
     const limitParam = event.queryStringParameters?.limit
     const nextTokenParam = event.queryStringParameters?.nextToken

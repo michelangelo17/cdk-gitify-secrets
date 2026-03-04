@@ -18,7 +18,7 @@ cdk-gitify-secrets fixes this by adding a **review workflow** between your `.env
 ```
 Developer                          AWS Secrets Manager        cdk-gitify-secrets API
     |                                     |                          |
-    |  sr propose -p api -e prod          |                          |
+    |  sr propose                         |                          |
     |  (1) CreateSecret (staging)  ------>|                          |
     |  (2) POST /changes (metadata only) --------------------------->|
     |                                     |     compute diff,        |
@@ -31,7 +31,7 @@ Developer                          AWS Secrets Manager        cdk-gitify-secrets
     |                                     |  copies staging -> real   |
     |                                     |  deletes staging secret  |
     |                                     |                          |
-    |  sr pull -p api -e dev -o .env      |                          |
+    |  sr pull                            |                          |
     |  (reads via AWS SDK directly) ----->|                          |
     |<------ .env file written -----------|                          |
 ```
@@ -100,9 +100,9 @@ If `requireMfa` is enabled, users will additionally be prompted to set up a TOTP
 | `userPool`               | `cognito.IUserPool`       | auto-created                        | Bring your own Cognito user pool                                    |
 | `userPoolClient`         | `cognito.IUserPoolClient` | auto-created                        | Bring your own client (only used with `userPool`)                   |
 | `deployFrontend`         | `boolean`                 | `true`                              | Deploy the web review dashboard via S3 + CloudFront                 |
-| `allowedOrigins`         | `string[]`                | `["*"]`                             | CORS allowed origins                                                |
+| `allowedOrigins`         | `string[]`                | CloudFront URL (or `["*"]` if frontend disabled) | CORS allowed origins                                     |
 | `preventSelfApproval`    | `boolean`                 | `true`                              | Block self-approval of changes                                      |
-| `slackWebhookUrl`        | `string`                  | none                                | Slack notifications (planned)                                       |
+| `enableProjectScoping`   | `boolean`                 | `false`                             | Per-project access control via Cognito groups (see Security Model)  |
 | `removalPolicy`          | `RemovalPolicy`           | `RETAIN`                            | Removal policy for stateful resources (DynamoDB, KMS, Secrets)      |
 | `vpc`                    | `ec2.IVpc`                | none                                | Place Lambdas in VPC with PrivateLink endpoints                     |
 | `throttle`               | `ThrottleConfig`          | `{ rateLimit: 10, burstLimit: 20 }` | API Gateway rate limiting                                           |
@@ -306,22 +306,72 @@ npm install -g cdk-gitify-secrets
 
 This installs the `sr` command.
 
-### Configure
+### Quick Start
+
+After deploying the CDK stack, run the interactive setup wizard:
 
 ```bash
-sr configure \
-  --api-url https://xxxxx.execute-api.us-east-1.amazonaws.com \
-  --region us-east-1 \
-  --client-id <UserPoolClientId> \
-  --user-pool-id <UserPoolId>
+sr init --stack-name MySecretReviewStack
 ```
 
-All flags are optional -- you can set them incrementally:
+This single command:
+
+1. Reads API URL, User Pool, Client ID, and Secret Prefix from the CloudFormation stack outputs
+2. Prompts you to log in with your Cognito credentials
+3. Asks for default project and environment, then optionally saves them to a local `.sr.json`
+
+For CI or non-interactive environments, pass all flags to skip prompts:
 
 ```bash
+sr init --stack-name MyStack --email ci@company.com --password "$SR_PASSWORD" \
+  --default-project backend-api --default-env production
+```
+
+After init, every CLI command works with zero flags:
+
+```bash
+sr propose                         # reads .sr.json, defaults reason, reads .env
+sr propose -r "Add Stripe key"    # override just the reason
+sr pull                            # reads .sr.json, writes to .env
+sr pull -e staging -o staging.env  # override env and output
+sr history                         # reads .sr.json
+```
+
+### Project Defaults (`.sr.json`)
+
+The CLI resolves project and environment using a priority chain:
+
+1. **CLI flags** (`-p`, `-e`) -- highest priority
+2. **Local `.sr.json`** in the current working directory
+3. **Global config** (`defaultProject`, `defaultEnv` in `~/.cdk-gitify-secrets/config.json`)
+
+Create a `.sr.json` in your repo root (like `.nvmrc` or `.node-version`):
+
+```json
+{
+  "project": "backend-api",
+  "env": "dev"
+}
+```
+
+This means `sr propose`, `sr pull`, and `sr history` all work with zero flags from that directory.
+
+### Configure
+
+For users who prefer manual setup over `sr init`:
+
+```bash
+# Auto-configure from a deployed stack (recommended)
+sr configure --from-stack MySecretReviewStack --region us-east-1
+
+# Or set values individually
 sr configure --api-url https://xxxxx.execute-api.us-east-1.amazonaws.com
 sr configure --region us-east-1
 sr configure --client-id <UserPoolClientId>
+sr configure --user-pool-id <UserPoolId>
+
+# Set default project/env (used when flags are omitted)
+sr configure --default-project backend-api --default-env dev
 ```
 
 An optional `--secret-prefix` flag overrides the default prefix (`secret-review/`). Only change this if you've customized the prefix in your construct.
@@ -337,21 +387,24 @@ sr login
 # Logged in. Token stored at ~/.cdk-gitify-secrets/config.json
 ```
 
-You can also pass credentials inline (useful for CI):
+For CI/automation, use the `SR_PASSWORD` environment variable (avoids leaking credentials to shell history):
 
 ```bash
-sr login --email you@company.com --password 'YourPassword123!'
+SR_PASSWORD='YourPassword123!' sr login --email you@company.com
 ```
+
+You can also pass `--password` directly, but be aware this is visible in shell history and `ps` output.
 
 Tokens are automatically refreshed when they expire. If refresh fails, run `sr login` again.
 
 ### Propose a change
 
 ```bash
-# From a .env file in the current directory (default)
-sr propose -p backend-api -e production -r "Add Stripe API key"
+# Zero flags -- uses .sr.json defaults, reads .env, auto-generates reason
+sr propose
 
-# From a specific file
+# Override specific values
+sr propose -r "Add Stripe API key"
 sr propose -p backend-api -e production -r "Initial secrets" -f ./secrets/prod.env
 ```
 
@@ -367,13 +420,11 @@ Open the `FrontendUrl` in your browser, sign in with your Cognito credentials, a
 ### Pull secrets for local development
 
 ```bash
-# Write to .env file (default)
-sr pull -p backend-api -e dev
+# Zero flags -- uses .sr.json defaults, writes to .env
+sr pull
 
-# Write to a specific file
-sr pull -p backend-api -e dev -o ./secrets/dev.env
-
-# Show only key names (no values)
+# Override specific values
+sr pull -e staging -o ./secrets/staging.env
 sr pull -p backend-api -e dev --keys-only
 ```
 
@@ -382,6 +433,10 @@ Pull reads Secrets Manager directly via the AWS SDK (IAM credentials). The custo
 ### View history
 
 ```bash
+# Zero flags -- uses .sr.json defaults
+sr history
+
+# Override project/env
 sr history -p backend-api -e production
 ```
 
@@ -399,14 +454,15 @@ sr status --change-id abc-123-def
 
 ### CLI Reference
 
-| Command                                              | Description                              |
-| ---------------------------------------------------- | ---------------------------------------- |
-| `sr configure [options]`                             | Set up API URL, region, Cognito config   |
-| `sr login [--email EMAIL] [--password PASS]`         | Authenticate with Cognito                |
-| `sr propose -p PROJECT -e ENV -r "reason" [-f FILE]` | Propose changes from a .env file         |
-| `sr pull -p PROJECT -e ENV [-o FILE] [--keys-only]`  | Pull secrets via AWS SDK                 |
-| `sr history -p PROJECT -e ENV`                       | View change history                      |
-| `sr status [--change-id ID]`                         | Check pending changes / inspect a change |
+| Command | Description |
+| --- | --- |
+| `sr init [--stack-name NAME] [--region REGION] [--email EMAIL] [--password PASS] [--default-project P] [--default-env E] [--skip-login]` | Interactive setup wizard (config + login + defaults) |
+| `sr configure [--from-stack NAME] [options]` | Set up API URL, region, Cognito config, project defaults |
+| `sr login [--email EMAIL] [--password PASS]` | Authenticate with Cognito |
+| `sr propose [-p PROJECT] [-e ENV] [-r "reason"] [-f FILE]` | Propose changes from a .env file |
+| `sr pull [-p PROJECT] [-e ENV] [-o FILE] [--keys-only]` | Pull secrets via AWS SDK |
+| `sr history [-p PROJECT] [-e ENV]` | View change history |
+| `sr status [--change-id ID]` | Check pending changes / inspect a change |
 
 ## Security Model
 
@@ -426,9 +482,57 @@ This is the core design principle. The API Gateway + Lambda handlers handle **on
 - **On approval**, the approve Lambda copies values from the staging secret to the real secret, then deletes the staging secret.
 - **On rejection**, the staging secret is deleted immediately.
 
+### Authorization model
+
+By default, all authenticated Cognito users are peers with equal access to all projects. This is suitable for small/medium teams where every developer should be able to propose, review, and view history for any project.
+
+For larger teams or environments that require per-project isolation, enable the `enableProjectScoping` prop:
+
+```typescript
+const sr = new SecretReview(this, "SecretReview", {
+  projects: [
+    { name: "backend-api", environments: ["dev", "production"] },
+    { name: "payment-service", environments: ["dev", "production"] },
+  ],
+  enableProjectScoping: true,
+});
+```
+
+When enabled:
+
+- A **Cognito group** is created for each project (named after the project).
+- All API endpoints enforce group membership -- users can only propose, approve, reject, rollback, view diffs, and read history for projects they belong to.
+- The `list-changes` endpoint filters results to only show changes for the caller's groups.
+
+**Managing group membership** via the AWS CLI:
+
+```bash
+# Add a user to the backend-api project
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id <UserPoolId> \
+  --username alice@company.com \
+  --group-name backend-api
+
+# List groups for a user
+aws cognito-idp admin-list-groups-for-user \
+  --user-pool-id <UserPoolId> \
+  --username alice@company.com
+```
+
+### Dual authentication model
+
+The CLI uses two different auth mechanisms:
+
+- **Cognito JWT** (for workflow): `sr propose` (metadata only), `sr history`, `sr status` go through the API Gateway, authenticated via Cognito JWT.
+- **IAM credentials** (for secret values): `sr propose` (staging secret creation) and `sr pull` interact with Secrets Manager directly using the developer's IAM credentials from `~/.aws/credentials`, env vars, or SSO.
+
+This means even if a Cognito account is compromised, the attacker cannot read or write secret values without also having valid IAM credentials with the right Secrets Manager permissions.
+
 ### Optimistic concurrency
 
 When a change is proposed, the propose Lambda records the Secrets Manager `VersionId` of the real secret. When an approver approves, the approve Lambda verifies the `VersionId` hasn't changed. If another change was approved in between, the approval fails with a `409 Conflict`, preventing silent overwrites.
+
+Status transitions (pending -> approved/rejected) are enforced atomically via DynamoDB condition expressions, preventing race conditions where two reviewers approve the same change simultaneously.
 
 ### Rollback
 
@@ -445,16 +549,19 @@ const sr = new SecretReview(this, "SecretReview", {
 });
 ```
 
+### CORS
+
+When the frontend dashboard is deployed (default), CORS is automatically scoped to the CloudFront distribution URL. When the frontend is disabled, or if you provide a custom `allowedOrigins` prop, those values are used instead. This prevents third-party websites from making authenticated requests to your API.
+
+### CLI credential safety
+
+- **Config file permissions**: The CLI writes `~/.cdk-gitify-secrets/config.json` with `0600` permissions (owner read/write only) and warns if the file has overly permissive permissions.
+- **HTTPS enforcement**: The CLI refuses to send credentials to non-HTTPS API URLs (except `http://localhost` for local development).
+- **`SR_PASSWORD` env var**: For CI/automation, use the `SR_PASSWORD` environment variable instead of the `--password` flag. Environment variables don't appear in shell history or `ps` output.
+
 ### Cleanup Lambda IAM note
 
-The cleanup Lambda requires `secretsmanager:ListSecrets` with `Resource: "*"` -- this is an [AWS IAM limitation](https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_iam-permissions.html) as `ListSecrets` does not support resource-level restrictions. However, the `DeleteSecret` and `GetSecretValue` actions are scoped to the staging prefix (`secret-review/pending/*`) and further restricted by an IAM tag condition (`secretReviewStaging: "true"`).
-
-### Dual authentication model
-
-The CLI uses two different auth mechanisms:
-
-- **Cognito JWT** (for workflow): `sr propose` (metadata only), `sr history`, `sr status` go through the API Gateway, authenticated via Cognito JWT.
-- **IAM credentials** (for secret values): `sr propose` (staging secret creation) and `sr pull` interact with Secrets Manager directly using the developer's IAM credentials from `~/.aws/credentials`, env vars, or SSO.
+The cleanup Lambda requires `secretsmanager:ListSecrets` with `Resource: "*"` -- this is an [AWS IAM limitation](https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_iam-permissions.html) as `ListSecrets` does not support resource-level restrictions. The `DeleteSecret` action is scoped to the staging prefix (`secret-review/pending/*`) and further restricted by an IAM tag condition (`secretReviewStaging: "true"`).
 
 ### Other security features
 
@@ -466,7 +573,16 @@ The CLI uses two different auth mechanisms:
 - **Scoped IAM** -- each Lambda handler gets only the permissions it needs (e.g., the list, diff, and history Lambdas have zero Secrets Manager access)
 - **Orphan cleanup** -- a daily scheduled Lambda deletes stale staging secrets
 - **Optional VPC mode** -- PrivateLink endpoints for regulated environments
-- **Config file permissions** -- CLI warns if `~/.cdk-gitify-secrets/config.json` has overly permissive permissions
+- **Project/env validation** -- all handlers validate project and environment names against the deployed configuration, rejecting unknown combinations
+
+### Known limitations
+
+These are conscious design trade-offs, not bugs:
+
+- **No per-project RBAC by default** -- without `enableProjectScoping`, all authenticated users can see and act on all projects. Enable project scoping for team isolation.
+- **Rollback is available to all authenticated users** -- there is no separate "admin" role for rollback. Any authenticated user (or any user in the project group, if scoping is enabled) can roll back an approved change.
+- **CLI password masking is best-effort** -- Node.js does not provide a built-in way to suppress terminal echo. The password prompt shows `*` characters but the underlying terminal may briefly display real characters depending on platform and timing. This is cosmetic; passwords are never logged or stored insecurely.
+- **`--password` flag is visible in shell history** -- use the `SR_PASSWORD` environment variable or the interactive prompt instead.
 
 ## Using Secrets in Your Application
 
@@ -526,7 +642,7 @@ Values are resolved at runtime -- they never appear in CloudFormation templates 
 ## Future Work
 
 - **Frontend framework migration**: The current dashboard is a single HTML file. As features grow, it may be migrated to a lightweight framework (e.g., Preact or Svelte) for better maintainability. The current SPA approach works well for the current feature set.
-- **Slack / Teams notifications**: The `slackWebhookUrl` prop is declared but not yet implemented. A future release will add webhook notifications on propose/approve/reject events.
+- **Slack / Teams notifications**: A future release will add webhook notifications on propose/approve/reject events, with the webhook URL stored in Secrets Manager (not as a Lambda env var) and scoped to only the Lambdas that send notifications.
 
 ## License
 

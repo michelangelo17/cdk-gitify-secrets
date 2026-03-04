@@ -18,7 +18,8 @@ const loginFlow = async (config: CliConfig, opts: {
   password?: string
 }): Promise<void> => {
   const email = opts.email ?? await prompt('  Email: ')
-  const password = opts.password ?? await prompt('  Password: ', true)
+  const password =
+    opts.password ?? process.env.SR_PASSWORD ?? await prompt('  Password: ', true)
 
   const client = new CognitoIdentityProviderClient({
     region: config.region!,

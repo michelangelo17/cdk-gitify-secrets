@@ -107,6 +107,7 @@ export const updateChangeStatus = async (
   pk: string,
   sk: string,
   status: string,
+  expectedStatus: string,
   reviewedBy: string,
   comment?: string,
   extras?: UpdateChangeStatusExtras,
@@ -122,6 +123,7 @@ export const updateChangeStatus = async (
     ':status': status,
     ':reviewedBy': reviewedBy,
     ':reviewedAt': now,
+    ':expectedStatus': expectedStatus,
   }
 
   if (comment) {
@@ -144,6 +146,7 @@ export const updateChangeStatus = async (
       TableName: TABLE_NAME,
       Key: { pk, sk },
       UpdateExpression: `SET ${expressionParts.join(', ')}`,
+      ConditionExpression: '#s = :expectedStatus',
       ExpressionAttributeNames: { '#s': 'status' },
       ExpressionAttributeValues: expressionValues,
     }),

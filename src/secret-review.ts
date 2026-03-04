@@ -1,5 +1,5 @@
 import * as path from 'node:path'
-import { Duration, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
+import { Annotations, Duration, Lazy, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
@@ -96,13 +96,6 @@ export interface SecretReviewProps {
   readonly preventSelfApproval?: boolean
 
   /**
-   * Slack webhook URL for change notifications (optional, not yet implemented).
-   *
-   * @default - no notifications
-   */
-  readonly slackWebhookUrl?: string
-
-  /**
    * Removal policy for stateful resources (DynamoDB, KMS key, Secrets Manager secrets).
    *
    * @default RemovalPolicy.RETAIN
@@ -163,6 +156,24 @@ export interface SecretReviewProps {
    * @default false
    */
   readonly requireMfa?: boolean
+
+  /**
+   * Enable per-project access control using Cognito user groups.
+   *
+   * When enabled, a Cognito group is created for each project (named after the project).
+   * Users must be added to a project's group to propose, approve, reject,
+   * rollback, or view history for that project. The `list-changes` endpoint
+   * filters results to only show changes for the caller's groups.
+   *
+   * Manage group membership via the AWS CLI:
+   * ```
+   * aws cognito-idp admin-add-user-to-group \
+   *   --user-pool-id <UserPoolId> --username alice@company.com --group-name backend-api
+   * ```
+   *
+   * @default false
+   */
+  readonly enableProjectScoping?: boolean
 }
 
 /**
@@ -369,6 +380,24 @@ export class SecretReview extends Construct {
     this.userPool = userPool
     this.userPoolClient = userPoolClient
 
+    // ─── Project Scoping (optional Cognito groups) ──────────────
+    if (props.enableProjectScoping) {
+      if (props.userPool) {
+        Annotations.of(this).addWarningV2(
+          'SecretReview:BYOPoolScoping',
+          'enableProjectScoping with a BYO user pool: groups are created but ' +
+            'you must ensure the pool includes cognito:groups in the ID token claims.',
+        )
+      }
+      for (const project of props.projects) {
+        new cognito.CfnUserPoolGroup(this, `Group-${project.name}`, {
+          userPoolId: userPool.userPoolId,
+          groupName: project.name,
+          description: `Access to ${project.name} secrets`,
+        })
+      }
+    }
+
     // ─── Shared Lambda environment ─────────────────────────────
     const sharedEnv: Record<string, string> = {
       TABLE_NAME: changeRequestsTable.tableName,
@@ -378,8 +407,8 @@ export class SecretReview extends Construct {
       PREVENT_SELF_APPROVAL: String(props.preventSelfApproval ?? true),
     }
 
-    if (props.slackWebhookUrl) {
-      sharedEnv.SLACK_WEBHOOK_URL = props.slackWebhookUrl
+    if (props.enableProjectScoping) {
+      sharedEnv.ENABLE_PROJECT_SCOPING = 'true'
     }
 
     // ─── VPC Configuration (optional) ────────────────────────────
@@ -539,10 +568,7 @@ export class SecretReview extends Construct {
     )
     cleanupFn.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: [
-          'secretsmanager:GetSecretValue',
-          'secretsmanager:DeleteSecret',
-        ],
+        actions: ['secretsmanager:DeleteSecret'],
         resources: [stagingSecretArn],
         conditions: {
           StringEquals: {
@@ -562,9 +588,12 @@ export class SecretReview extends Construct {
 
     const throttle = props.throttle ?? { rateLimit: 10, burstLimit: 20 }
 
+    let corsOrigins: string[] | undefined
     const httpApi = new apigatewayv2.HttpApi(this, 'Api', {
       corsPreflight: {
-        allowOrigins: props.allowedOrigins ?? ['*'],
+        allowOrigins: props.allowedOrigins ?? Lazy.list({
+          produce: () => corsOrigins ?? ['*'],
+        }),
         allowMethods: [apigatewayv2.CorsHttpMethod.ANY],
         allowHeaders: ['Content-Type', 'Authorization'],
       },
@@ -664,6 +693,10 @@ export class SecretReview extends Construct {
       })
 
       this.frontendUrl = `https://${distribution.distributionDomainName}`
+
+      if (!props.allowedOrigins) {
+        corsOrigins = [this.frontendUrl]
+      }
 
       new CfnOutput(this, 'FrontendUrl', { value: this.frontendUrl })
     }

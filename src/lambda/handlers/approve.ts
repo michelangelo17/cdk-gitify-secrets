@@ -2,7 +2,7 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { getUserEmail } from './shared/auth'
+import { assertProjectAccess, getUserEmail } from './shared/auth'
 import { config } from './shared/config'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
 import { ok, error } from './shared/response'
@@ -34,6 +34,9 @@ export const handler = async (
     if (change.status !== 'pending') {
       return error(409, `Change is already ${change.status}`)
     }
+
+    const accessError = assertProjectAccess(event, change.project)
+    if (accessError) return error(403, accessError)
 
     if (config.preventSelfApproval && change.proposedBy === reviewerEmail) {
       return error(403, 'Cannot approve your own changes')
@@ -68,17 +71,28 @@ export const handler = async (
     await putSecretValue(change.project, change.env, stagingData.proposed)
     await deleteStagingSecret(changeId)
 
-    await updateChangeStatus(
-      change.pk,
-      change.sk,
-      'approved',
-      reviewerEmail,
-      body.comment,
-      {
-        previousVersionId,
-        currentKeys: Object.keys(stagingData.proposed),
-      },
-    )
+    try {
+      await updateChangeStatus(
+        change.pk,
+        change.sk,
+        'approved',
+        'pending',
+        reviewerEmail,
+        body.comment,
+        {
+          previousVersionId,
+          currentKeys: Object.keys(stagingData.proposed),
+        },
+      )
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        e.name === 'ConditionalCheckFailedException'
+      ) {
+        return error(409, 'Change was already reviewed by another user')
+      }
+      throw e
+    }
 
     return ok({
       message: `Change ${changeId} approved and applied`,

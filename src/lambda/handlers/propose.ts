@@ -2,7 +2,7 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { getUserEmail } from './shared/auth'
+import { assertProjectAccess, getUserEmail } from './shared/auth'
 import { config } from './shared/config'
 import { buildPk, buildSk, putChange } from './shared/dynamo'
 import { ok, error } from './shared/response'
@@ -56,6 +56,9 @@ export const handler = async (
         `Invalid project/environment: ${body.project}/${body.env}`,
       )
     }
+
+    const accessError = assertProjectAccess(event, body.project)
+    if (accessError) return error(403, accessError)
 
     const proposedBy = getUserEmail(event)
 

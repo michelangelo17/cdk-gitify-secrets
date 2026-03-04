@@ -16,7 +16,8 @@ export const registerLoginCommand = (program: Command): void => {
       const config = requireConfig(['region', 'clientId'])
 
       const email = opts.email || (await prompt('Email: '))
-      const password = opts.password || (await prompt('Password: ', true))
+      const password =
+        opts.password ?? process.env.SR_PASSWORD ?? (await prompt('Password: ', true))
 
       try {
         const client = new CognitoIdentityProviderClient({

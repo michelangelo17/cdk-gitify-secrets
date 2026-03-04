@@ -2,7 +2,7 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { getUserEmail } from './shared/auth'
+import { assertProjectAccess, getUserEmail } from './shared/auth'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
 import { ok, error } from './shared/response'
 import { deleteStagingSecret } from './shared/secrets'
@@ -29,15 +29,29 @@ export const handler = async (
       return error(409, `Change is already ${change.status}`)
     }
 
+    const accessError = assertProjectAccess(event, change.project)
+    if (accessError) return error(403, accessError)
+
     await deleteStagingSecret(changeId)
 
-    await updateChangeStatus(
-      change.pk,
-      change.sk,
-      'rejected',
-      reviewerEmail,
-      body.comment,
-    )
+    try {
+      await updateChangeStatus(
+        change.pk,
+        change.sk,
+        'rejected',
+        'pending',
+        reviewerEmail,
+        body.comment,
+      )
+    } catch (e) {
+      if (
+        e instanceof Error &&
+        e.name === 'ConditionalCheckFailedException'
+      ) {
+        return error(409, 'Change was already reviewed by another user')
+      }
+      throw e
+    }
 
     return ok({
       message: `Change ${changeId} rejected`,

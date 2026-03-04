@@ -3,7 +3,7 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { getUserEmail } from './shared/auth'
+import { assertProjectAccess, getUserEmail } from './shared/auth'
 import { getChangeById, buildPk, buildSk, putChange } from './shared/dynamo'
 import { ok, error } from './shared/response'
 import { getSecretByVersionStage, putSecretValue } from './shared/secrets'
@@ -29,6 +29,9 @@ export const handler = async (
     if (targetChange.status !== 'approved') {
       return error(400, 'Can only rollback approved changes')
     }
+
+    const accessError = assertProjectAccess(event, targetChange.project)
+    if (accessError) return error(403, accessError)
 
     const rollbackValues = await getSecretByVersionStage(
       targetChange.project,
