@@ -80,7 +80,13 @@ export const registerInitCommand = (program: Command): void => {
         opts.region ??
         config.region ??
         process.env.AWS_REGION ??
-        'us-east-1'
+        process.env.AWS_DEFAULT_REGION
+
+      if (!region) {
+        console.error('  Could not determine AWS region.')
+        console.error('  Pass --region or set the AWS_REGION environment variable.')
+        process.exit(1)
+      }
 
       // ── Step 1: Configure from stack or manually ──────────────
       let stackName: string | undefined = opts.stackName
@@ -110,6 +116,7 @@ export const registerInitCommand = (program: Command): void => {
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e)
           console.error(`\n  Failed to read stack: ${msg}`)
+          console.error(`  (searched in region: ${region})`)
           console.error('  Falling back to manual configuration.\n')
           stackName = undefined
         }

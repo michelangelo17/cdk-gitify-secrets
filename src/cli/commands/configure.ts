@@ -23,7 +23,13 @@ export const registerConfigureCommand = (program: Command): void => {
 
       if (opts.fromStack) {
         const region =
-          opts.region ?? config.region ?? process.env.AWS_REGION ?? 'us-east-1'
+          opts.region ?? config.region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION
+
+        if (!region) {
+          console.error('Could not determine AWS region.')
+          console.error('Pass --region or set the AWS_REGION environment variable.')
+          process.exit(1)
+        }
 
         try {
           const stackConfig = await configFromStack(opts.fromStack, region)
