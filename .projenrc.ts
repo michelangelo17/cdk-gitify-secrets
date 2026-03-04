@@ -98,8 +98,9 @@ for (const handler of handlers) {
 
 project.preCompileTask.spawn(bundleTask)
 
-// Add CLI bin entry
+// Add CLI bin entry and ensure the file is executable after jsii compile
 project.addBins({ sr: 'lib/cli/index.js' })
+project.postCompileTask.exec('chmod +x lib/cli/index.js')
 
 // Frontend HTML is still needed at deploy time
 project.npmignore?.addPatterns('!/src/frontend/')

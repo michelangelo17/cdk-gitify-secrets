@@ -298,20 +298,27 @@ This grants only:
 
 ## Usage (CLI)
 
-### Install globally
+### Install
+
+The `sr` command is available via `npx` from any project that has `cdk-gitify-secrets` as a dependency -- no global install required:
+
+```bash
+npx sr <command>
+```
+
+If you prefer a global install:
 
 ```bash
 npm install -g cdk-gitify-secrets
+sr <command>
 ```
-
-This installs the `sr` command.
 
 ### Quick Start
 
 After deploying the CDK stack, run the interactive setup wizard:
 
 ```bash
-sr init --stack-name MySecretReviewStack
+npx sr init --stack-name MySecretReviewStack
 ```
 
 This single command:
@@ -323,18 +330,18 @@ This single command:
 For CI or non-interactive environments, pass all flags to skip prompts:
 
 ```bash
-sr init --stack-name MyStack --email ci@company.com --password "$SR_PASSWORD" \
+npx sr init --stack-name MyStack --email ci@company.com --password "$SR_PASSWORD" \
   --default-project backend-api --default-env production
 ```
 
 After init, every CLI command works with zero flags:
 
 ```bash
-sr propose                         # reads .sr.json, defaults reason, reads .env
-sr propose -r "Add Stripe key"    # override just the reason
-sr pull                            # reads .sr.json, writes to .env
-sr pull -e staging -o staging.env  # override env and output
-sr history                         # reads .sr.json
+npx sr propose                         # reads .sr.json, defaults reason, reads .env
+npx sr propose -r "Add Stripe key"    # override just the reason
+npx sr pull                            # reads .sr.json, writes to .env
+npx sr pull -e staging -o staging.env  # override env and output
+npx sr history                         # reads .sr.json
 ```
 
 ### Project Defaults (`.sr.json`)
@@ -362,16 +369,16 @@ For users who prefer manual setup over `sr init`:
 
 ```bash
 # Auto-configure from a deployed stack (recommended)
-sr configure --from-stack MySecretReviewStack --region us-east-1
+npx sr configure --from-stack MySecretReviewStack --region us-east-1
 
 # Or set values individually
-sr configure --api-url https://xxxxx.execute-api.us-east-1.amazonaws.com
-sr configure --region us-east-1
-sr configure --client-id <UserPoolClientId>
-sr configure --user-pool-id <UserPoolId>
+npx sr configure --api-url https://xxxxx.execute-api.us-east-1.amazonaws.com
+npx sr configure --region us-east-1
+npx sr configure --client-id <UserPoolClientId>
+npx sr configure --user-pool-id <UserPoolId>
 
 # Set default project/env (used when flags are omitted)
-sr configure --default-project backend-api --default-env dev
+npx sr configure --default-project backend-api --default-env dev
 ```
 
 An optional `--secret-prefix` flag overrides the default prefix (`secret-review/`). Only change this if you've customized the prefix in your construct.
@@ -381,7 +388,7 @@ Configuration is saved to `~/.cdk-gitify-secrets/config.json` with `0600` permis
 ### Login
 
 ```bash
-sr login
+npx sr login
 # Email: you@company.com
 # Password: ********
 # Logged in. Token stored at ~/.cdk-gitify-secrets/config.json
@@ -390,7 +397,7 @@ sr login
 For CI/automation, use the `SR_PASSWORD` environment variable (avoids leaking credentials to shell history):
 
 ```bash
-SR_PASSWORD='YourPassword123!' sr login --email you@company.com
+SR_PASSWORD='YourPassword123!' npx sr login --email you@company.com
 ```
 
 You can also pass `--password` directly, but be aware this is visible in shell history and `ps` output.
@@ -401,11 +408,11 @@ Tokens are automatically refreshed when they expire. If refresh fails, run `sr l
 
 ```bash
 # Zero flags -- uses .sr.json defaults, reads .env, auto-generates reason
-sr propose
+npx sr propose
 
 # Override specific values
-sr propose -r "Add Stripe API key"
-sr propose -p backend-api -e production -r "Initial secrets" -f ./secrets/prod.env
+npx sr propose -r "Add Stripe API key"
+npx sr propose -p backend-api -e production -r "Initial secrets" -f ./secrets/prod.env
 ```
 
 This does two things:
@@ -421,11 +428,11 @@ Open the `FrontendUrl` in your browser, sign in with your Cognito credentials, a
 
 ```bash
 # Zero flags -- uses .sr.json defaults, writes to .env
-sr pull
+npx sr pull
 
 # Override specific values
-sr pull -e staging -o ./secrets/staging.env
-sr pull -p backend-api -e dev --keys-only
+npx sr pull -e staging -o ./secrets/staging.env
+npx sr pull -p backend-api -e dev --keys-only
 ```
 
 Pull reads Secrets Manager directly via the AWS SDK (IAM credentials). The custom API is not involved.
@@ -434,10 +441,10 @@ Pull reads Secrets Manager directly via the AWS SDK (IAM credentials). The custo
 
 ```bash
 # Zero flags -- uses .sr.json defaults
-sr history
+npx sr history
 
 # Override project/env
-sr history -p backend-api -e production
+npx sr history -p backend-api -e production
 ```
 
 Displays a table of past changes with change ID, status, proposer, and reason.
@@ -446,23 +453,23 @@ Displays a table of past changes with change ID, status, proposer, and reason.
 
 ```bash
 # List all pending changes
-sr status
+npx sr status
 
 # Inspect a specific change
-sr status --change-id abc-123-def
+npx sr status --change-id abc-123-def
 ```
 
 ### CLI Reference
 
 | Command | Description |
 | --- | --- |
-| `sr init [--stack-name NAME] [--region REGION] [--email EMAIL] [--password PASS] [--default-project P] [--default-env E] [--skip-login]` | Interactive setup wizard (config + login + defaults) |
-| `sr configure [--from-stack NAME] [options]` | Set up API URL, region, Cognito config, project defaults |
-| `sr login [--email EMAIL] [--password PASS]` | Authenticate with Cognito |
-| `sr propose [-p PROJECT] [-e ENV] [-r "reason"] [-f FILE]` | Propose changes from a .env file |
-| `sr pull [-p PROJECT] [-e ENV] [-o FILE] [--keys-only]` | Pull secrets via AWS SDK |
-| `sr history [-p PROJECT] [-e ENV]` | View change history |
-| `sr status [--change-id ID]` | Check pending changes / inspect a change |
+| `npx sr init [--stack-name NAME] [--region REGION] [--email EMAIL] [--password PASS] [--default-project P] [--default-env E] [--skip-login]` | Interactive setup wizard (config + login + defaults) |
+| `npx sr configure [--from-stack NAME] [options]` | Set up API URL, region, Cognito config, project defaults |
+| `npx sr login [--email EMAIL] [--password PASS]` | Authenticate with Cognito |
+| `npx sr propose [-p PROJECT] [-e ENV] [-r "reason"] [-f FILE]` | Propose changes from a .env file |
+| `npx sr pull [-p PROJECT] [-e ENV] [-o FILE] [--keys-only]` | Pull secrets via AWS SDK |
+| `npx sr history [-p PROJECT] [-e ENV]` | View change history |
+| `npx sr status [--change-id ID]` | Check pending changes / inspect a change |
 
 ## Security Model
 

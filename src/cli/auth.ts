@@ -174,7 +174,24 @@ export const configFromStack = async (
   stackName: string,
   region: string,
 ): Promise<Partial<CliConfig>> => {
-  const cfn = new CloudFormationClient({ region })
+  // When both AWS_PROFILE and AWS_ACCESS_KEY_ID are set, the SDK prefers the
+  // profile. Tools like `assume` set fresh env-var credentials alongside a
+  // (possibly stale) profile, so we explicitly prefer env vars here.
+  const credentials =
+    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+      ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        ...(process.env.AWS_SESSION_TOKEN
+          ? { sessionToken: process.env.AWS_SESSION_TOKEN }
+          : {}),
+      }
+      : undefined
+
+  const cfn = new CloudFormationClient({
+    region,
+    ...(credentials ? { credentials } : {}),
+  })
   const { Stacks } = await cfn.send(
     new DescribeStacksCommand({ StackName: stackName }),
   )

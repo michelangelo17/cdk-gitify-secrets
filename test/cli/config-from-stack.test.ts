@@ -1,7 +1,8 @@
 const mockCfnSend = jest.fn()
+const MockCfnClient = jest.fn(() => ({ send: mockCfnSend }))
 
 jest.mock('@aws-sdk/client-cloudformation', () => ({
-  CloudFormationClient: jest.fn(() => ({ send: mockCfnSend })),
+  CloudFormationClient: MockCfnClient,
   DescribeStacksCommand: jest.fn((input: unknown) => ({
     _type: 'DescribeStacks',
     _input: input,
@@ -16,8 +17,24 @@ jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
 import { configFromStack } from '../../src/cli/auth'
 
 describe('configFromStack', () => {
+  const savedEnv: Record<string, string | undefined> = {}
+
   beforeEach(() => {
     jest.clearAllMocks()
+    for (const key of ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN']) {
+      savedEnv[key] = process.env[key]
+      delete process.env[key]
+    }
+  })
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(savedEnv)) {
+      if (value === undefined) {
+        delete process.env[key]
+      } else {
+        process.env[key] = value
+      }
+    }
   })
 
   test('maps stack outputs to CliConfig fields', async () => {
@@ -107,5 +124,69 @@ describe('configFromStack', () => {
     await expect(configFromStack('EmptyStack', 'us-east-1')).rejects.toThrow(
       'missing the ApiUrl output',
     )
+  })
+
+  test('uses explicit credentials from env vars when set', async () => {
+    process.env.AWS_ACCESS_KEY_ID = 'AKIATEST'
+    process.env.AWS_SECRET_ACCESS_KEY = 'secret123'
+    process.env.AWS_SESSION_TOKEN = 'tok456'
+
+    mockCfnSend.mockResolvedValue({
+      Stacks: [{
+        Outputs: [
+          { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
+        ],
+      }],
+    })
+
+    await configFromStack('MyStack', 'us-east-1')
+
+    expect(MockCfnClient).toHaveBeenCalledWith({
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: 'AKIATEST',
+        secretAccessKey: 'secret123',
+        sessionToken: 'tok456',
+      },
+    })
+  })
+
+  test('omits sessionToken when AWS_SESSION_TOKEN is not set', async () => {
+    process.env.AWS_ACCESS_KEY_ID = 'AKIATEST'
+    process.env.AWS_SECRET_ACCESS_KEY = 'secret123'
+
+    mockCfnSend.mockResolvedValue({
+      Stacks: [{
+        Outputs: [
+          { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
+        ],
+      }],
+    })
+
+    await configFromStack('MyStack', 'us-east-1')
+
+    expect(MockCfnClient).toHaveBeenCalledWith({
+      region: 'us-east-1',
+      credentials: {
+        accessKeyId: 'AKIATEST',
+        secretAccessKey: 'secret123',
+      },
+    })
+  })
+
+  test('uses default provider chain when env vars are not set', async () => {
+    mockCfnSend.mockResolvedValue({
+      Stacks: [{
+        Outputs: [
+          { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
+        ],
+      }],
+    })
+
+    await configFromStack('MyStack', 'us-east-1')
+
+    expect(MockCfnClient).toHaveBeenCalledWith({
+      region: 'us-east-1',
+    })
   })
 })

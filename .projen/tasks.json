@@ -222,6 +222,9 @@
       "steps": [
         {
           "spawn": "docgen"
+        },
+        {
+          "exec": "chmod +x lib/cli/index.js"
         }
       ]
     },
