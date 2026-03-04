@@ -1,6 +1,8 @@
 import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
+  AdminCreateUserCommand,
+  AdminSetUserPasswordCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { Command } from 'commander'
 import {
@@ -12,6 +14,83 @@ import {
 import type { CliConfig } from '../auth'
 import { prompt, confirm } from '../prompt'
 import { saveLocalConfig } from '../resolve-defaults'
+
+const cognitoClient = (config: CliConfig) => {
+  const credentials =
+    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+      ? {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        ...(process.env.AWS_SESSION_TOKEN
+          ? { sessionToken: process.env.AWS_SESSION_TOKEN }
+          : {}),
+      }
+      : undefined
+
+  return new CognitoIdentityProviderClient({
+    region: config.region!,
+    ...(credentials ? { credentials } : {}),
+  })
+}
+
+const createUserFlow = async (config: CliConfig, opts: {
+  email?: string
+  password?: string
+}): Promise<void> => {
+  const email = opts.email ?? await prompt('  Email: ')
+  const password =
+    opts.password ?? process.env.SR_PASSWORD ?? await prompt('  Choose a password: ', true)
+
+  const client = cognitoClient(config)
+
+  console.log('\n  Creating user...')
+  await client.send(
+    new AdminCreateUserCommand({
+      UserPoolId: config.userPoolId!,
+      Username: email,
+      UserAttributes: [
+        { Name: 'email', Value: email },
+        { Name: 'email_verified', Value: 'true' },
+      ],
+      MessageAction: 'SUPPRESS',
+      TemporaryPassword: password,
+    }),
+  )
+
+  await client.send(
+    new AdminSetUserPasswordCommand({
+      UserPoolId: config.userPoolId!,
+      Username: email,
+      Password: password,
+      Permanent: true,
+    }),
+  )
+
+  console.log(`  Created user: ${email}`)
+
+  const authResult = await client.send(
+    new InitiateAuthCommand({
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      ClientId: config.clientId!,
+      AuthParameters: { USERNAME: email, PASSWORD: password },
+    }),
+  )
+
+  if (!authResult.AuthenticationResult) {
+    console.error('\n  User created but login failed. Run: npx sr login')
+    return
+  }
+
+  config.idToken = authResult.AuthenticationResult.IdToken
+  config.refreshToken = authResult.AuthenticationResult.RefreshToken
+  config.email = email
+  config.tokenExpiresAt =
+    Math.floor(Date.now() / 1000) +
+    (authResult.AuthenticationResult.ExpiresIn ?? 3600)
+
+  saveConfig(config)
+  console.log(`  Logged in as ${email}`)
+}
 
 const loginFlow = async (config: CliConfig, opts: {
   email?: string
@@ -72,6 +151,7 @@ export const registerInitCommand = (program: Command): void => {
     .option('--default-project <project>', 'Default project name')
     .option('--default-env <env>', 'Default environment name')
     .option('--skip-login', 'Skip the login step')
+    .option('--create-user', 'Create a new Cognito user (requires IAM admin access)')
     .action(async (opts) => {
       console.log('\n  Welcome to cdk-gitify-secrets!\n')
 
@@ -140,19 +220,48 @@ export const registerInitCommand = (program: Command): void => {
       saveConfig(config)
       console.log(`\n  Config saved to ${getConfigPath()}`)
 
-      // ── Step 2: Login ─────────────────────────────────────────
+      // ── Step 2: Create user and/or login ────────────────────
       if (!opts.skipLogin) {
-        console.log('\n  Log in to continue.\n')
+        let createUser = opts.createUser as boolean | undefined
 
-        try {
-          await loginFlow(config, {
-            email: opts.email,
-            password: opts.password,
-          })
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e)
-          console.error(`\n  Login failed: ${msg}`)
-          console.error('  You can log in later with: sr login\n')
+        if (createUser === undefined) {
+          createUser = await confirm(
+            '\n  Create your first Cognito user? (requires IAM admin access)',
+          )
+        }
+
+        if (createUser) {
+          try {
+            console.log('')
+            await createUserFlow(config, {
+              email: opts.email,
+              password: opts.password,
+            })
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            console.error(`\n  Failed to create user: ${msg}`)
+            console.error('  You can create a user manually:')
+            console.error(`    aws cognito-idp admin-create-user --user-pool-id ${config.userPoolId} --username <email> --user-attributes Name=email,Value=<email> Name=email_verified,Value=true`)
+            console.error('  Then run: npx sr login\n')
+          }
+        } else {
+          const wantsLogin = await confirm(
+            '  Log in with an existing account?',
+          )
+
+          if (wantsLogin) {
+            try {
+              console.log('')
+              await loginFlow(config, {
+                email: opts.email,
+                password: opts.password,
+              })
+            } catch (e) {
+              const msg = e instanceof Error ? e.message : String(e)
+              console.error(`\n  Login failed: ${msg}`)
+              console.error('  You can log in later with: npx sr login\n')
+            }
+          }
         }
       }
 
@@ -182,6 +291,6 @@ export const registerInitCommand = (program: Command): void => {
         saveConfig(config)
       }
 
-      console.log('\n  Ready! Try: sr propose\n')
+      console.log('\n  Ready! Try: npx sr propose\n')
     })
 }

@@ -19,6 +19,14 @@ jest.mock('@aws-sdk/client-cognito-identity-provider', () => ({
     _type: 'InitiateAuth',
     _input: input,
   })),
+  AdminCreateUserCommand: jest.fn((input: unknown) => ({
+    _type: 'AdminCreateUser',
+    _input: input,
+  })),
+  AdminSetUserPasswordCommand: jest.fn((input: unknown) => ({
+    _type: 'AdminSetUserPassword',
+    _input: input,
+  })),
 }))
 
 jest.mock('../../src/cli/prompt', () => ({
@@ -137,6 +145,8 @@ describe('init command', () => {
 
     mockConfirm
       .mockResolvedValueOnce(true) // yes, configure from stack
+      .mockResolvedValueOnce(false) // no, don't create user
+      .mockResolvedValueOnce(true) // yes, log in with existing account
       .mockResolvedValueOnce(false) // don't save .sr.json
 
     mockPrompt
@@ -164,6 +174,49 @@ describe('init command', () => {
     expect(config.apiUrl).toBe('https://manual-api.com')
     expect(config.email).toBe('test@test.com')
     expect(config.region).toBe('us-west-2')
+  })
+
+  test('--create-user creates user and logs in', async () => {
+    mockCfnSend.mockResolvedValue({
+      Stacks: [
+        {
+          Outputs: [
+            { OutputKey: 'ApiUrl', OutputValue: 'https://api.test.com' },
+            { OutputKey: 'UserPoolId', OutputValue: 'us-east-1_pool' },
+            { OutputKey: 'UserPoolClientId', OutputValue: 'client-abc' },
+          ],
+        },
+      ],
+    })
+
+    mockCognitoSend
+      .mockResolvedValueOnce({}) // AdminCreateUser
+      .mockResolvedValueOnce({}) // AdminSetUserPassword
+      .mockResolvedValueOnce({ // InitiateAuth
+        AuthenticationResult: {
+          IdToken: 'new-id-tok',
+          RefreshToken: 'new-ref-tok',
+          ExpiresIn: 3600,
+        },
+      })
+
+    mockPrompt.mockResolvedValueOnce('proj') // default project
+    mockPrompt.mockResolvedValueOnce('dev') // default env
+    mockConfirm.mockResolvedValueOnce(false) // don't save .sr.json
+
+    await runInit(
+      '--stack-name', 'TestStack',
+      '--region', 'us-east-1',
+      '--create-user',
+      '--email', 'new@test.com',
+      '--password', 'NewPass123!',
+    )
+
+    expect(mockCognitoSend).toHaveBeenCalledTimes(3)
+
+    const config = JSON.parse(fs.readFileSync(configFile, 'utf-8'))
+    expect(config.email).toBe('new@test.com')
+    expect(config.idToken).toBe('new-id-tok')
   })
 
   test('skips login with --skip-login flag', async () => {
