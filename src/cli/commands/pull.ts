@@ -4,7 +4,7 @@ import {
   ResourceNotFoundException,
 } from '@aws-sdk/client-secrets-manager'
 import { Command } from 'commander'
-import { requireConfig } from '../auth'
+import { requireConfig, awsCredentials } from '../auth'
 import { writeEnvFile } from '../env-parser'
 import { resolveProjectEnv } from '../resolve-defaults'
 
@@ -29,7 +29,11 @@ export const registerPullCommand = (program: Command): void => {
       console.log('Using AWS SDK directly (IAM credentials)\n')
 
       try {
-        const client = new SecretsManagerClient({ region })
+        const credentials = awsCredentials()
+        const client = new SecretsManagerClient({
+          region,
+          ...(credentials ? { credentials } : {}),
+        })
         const result = await client.send(
           new GetSecretValueCommand({ SecretId: secretName }),
         )

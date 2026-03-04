@@ -10,23 +10,14 @@ import {
   saveConfig,
   getConfigPath,
   configFromStack,
+  awsCredentials,
 } from '../auth'
 import type { CliConfig } from '../auth'
 import { prompt, confirm } from '../prompt'
-import { saveLocalConfig } from '../resolve-defaults'
+import { loadLocalConfig, saveLocalConfig } from '../resolve-defaults'
 
 const cognitoClient = (config: CliConfig) => {
-  const credentials =
-    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-      ? {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        ...(process.env.AWS_SESSION_TOKEN
-          ? { sessionToken: process.env.AWS_SESSION_TOKEN }
-          : {}),
-      }
-      : undefined
-
+  const credentials = awsCredentials()
   return new CognitoIdentityProviderClient({
     region: config.region!,
     ...(credentials ? { credentials } : {}),
@@ -266,28 +257,35 @@ export const registerInitCommand = (program: Command): void => {
       }
 
       // ── Step 3: Project defaults ──────────────────────────────
-      const project =
-        opts.defaultProject ?? (await prompt('\n  Default project: '))
-      const env =
-        opts.defaultEnv ?? (await prompt('  Default environment: '))
+      const existing = loadLocalConfig()
+      const defaultProject = opts.defaultProject ?? existing.project ?? config.defaultProject
+      const defaultEnv = opts.defaultEnv ?? existing.env ?? config.defaultEnv
 
-      if (project.trim() && env.trim()) {
+      const projectLabel = defaultProject
+        ? `\n  Default project [${defaultProject}]: `
+        : '\n  Default project: '
+      const envLabel = defaultEnv
+        ? `  Default environment [${defaultEnv}]: `
+        : '  Default environment: '
+
+      const projectInput = opts.defaultProject ?? (await prompt(projectLabel))
+      const envInput = opts.defaultEnv ?? (await prompt(envLabel))
+
+      const project = projectInput.trim() || defaultProject || ''
+      const env = envInput.trim() || defaultEnv || ''
+
+      if (project && env) {
         const saveLocal = await confirm(
           '\n  Save project defaults to .sr.json in this directory?',
         )
 
         if (saveLocal) {
-          const filePath = saveLocalConfig({
-            project: project.trim(),
-            env: env.trim(),
-          })
-          console.log(
-            `  Created ${filePath} (project: ${project.trim()}, env: ${env.trim()})`,
-          )
+          const filePath = saveLocalConfig({ project, env })
+          console.log(`  Created ${filePath} (project: ${project}, env: ${env})`)
         }
 
-        config.defaultProject = project.trim()
-        config.defaultEnv = env.trim()
+        config.defaultProject = project
+        config.defaultEnv = env
         saveConfig(config)
       }
 

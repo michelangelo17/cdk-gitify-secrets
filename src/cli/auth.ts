@@ -10,6 +10,20 @@ import {
   InitiateAuthCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 
+// When both AWS_PROFILE and AWS_ACCESS_KEY_ID are set, the SDK prefers the
+// profile. Tools like `assume` set fresh env-var credentials alongside a
+// (possibly stale) profile, so we explicitly prefer env vars.
+export const awsCredentials = () =>
+  process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
+    ? {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      ...(process.env.AWS_SESSION_TOKEN
+        ? { sessionToken: process.env.AWS_SESSION_TOKEN }
+        : {}),
+    }
+    : undefined
+
 const getConfigDir = () =>
   process.env.SR_CONFIG_DIR ?? path.join(os.homedir(), '.cdk-gitify-secrets')
 const getConfigFile = () => path.join(getConfigDir(), 'config.json')
@@ -177,20 +191,7 @@ export const configFromStack = async (
   stackName: string,
   region: string,
 ): Promise<Partial<CliConfig>> => {
-  // When both AWS_PROFILE and AWS_ACCESS_KEY_ID are set, the SDK prefers the
-  // profile. Tools like `assume` set fresh env-var credentials alongside a
-  // (possibly stale) profile, so we explicitly prefer env vars here.
-  const credentials =
-    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
-      ? {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-        ...(process.env.AWS_SESSION_TOKEN
-          ? { sessionToken: process.env.AWS_SESSION_TOKEN }
-          : {}),
-      }
-      : undefined
-
+  const credentials = awsCredentials()
   const cfn = new CloudFormationClient({
     region,
     ...(credentials ? { credentials } : {}),

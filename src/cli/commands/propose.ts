@@ -8,7 +8,7 @@ import {
   ResourceNotFoundException,
 } from '@aws-sdk/client-secrets-manager'
 import { Command } from 'commander'
-import { requireConfig, apiRequest } from '../auth'
+import { requireConfig, apiRequest, awsCredentials } from '../auth'
 import { formatDiffSymbol, parseEnvFile } from '../env-parser'
 import { resolveProjectEnv } from '../resolve-defaults'
 
@@ -49,7 +49,11 @@ export const registerProposeCommand = (program: Command): void => {
         '  Using AWS SDK to create staging secret (IAM credentials)\n',
       )
 
-      const smClient = new SecretsManagerClient({ region })
+      const credentials = awsCredentials()
+      const smClient = new SecretsManagerClient({
+        region,
+        ...(credentials ? { credentials } : {}),
+      })
 
       let currentValues: Record<string, string> = {}
       try {
