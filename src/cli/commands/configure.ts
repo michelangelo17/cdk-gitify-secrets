@@ -23,7 +23,7 @@ export const registerConfigureCommand = (program: Command): void => {
 
       if (opts.fromStack) {
         const region =
-          opts.region ?? config.region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION
+          opts.region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? config.region
 
         if (!region) {
           console.error('Could not determine AWS region.')

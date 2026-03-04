@@ -78,9 +78,9 @@ export const registerInitCommand = (program: Command): void => {
       const config = loadConfig()
       const region =
         opts.region ??
-        config.region ??
         process.env.AWS_REGION ??
-        process.env.AWS_DEFAULT_REGION
+        process.env.AWS_DEFAULT_REGION ??
+        config.region
 
       if (!region) {
         console.error('  Could not determine AWS region.')
