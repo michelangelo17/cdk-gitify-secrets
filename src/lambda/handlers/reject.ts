@@ -8,9 +8,9 @@ import { ok, error } from './shared/response'
 import { deleteStagingSecret } from './shared/secrets'
 import type { ApproveRejectBody } from './shared/types'
 
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const changeId = event.pathParameters?.changeId
     if (!changeId) {
@@ -29,10 +29,8 @@ export async function handler(
       return error(409, `Change is already ${change.status}`)
     }
 
-    // Delete the staging secret
     await deleteStagingSecret(changeId)
 
-    // Update DynamoDB status
     await updateChangeStatus(
       change.pk,
       change.sk,

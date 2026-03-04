@@ -15,18 +15,28 @@ const project = new awscdk.AwsCdkConstructLibrary({
   jsiiVersion: '~5.9.0',
   projenrcTs: true,
 
+  tsconfig: {
+    compilerOptions: {
+      lib: ['es2023'],
+    },
+  },
+  tsconfigDev: {
+    compilerOptions: {
+      lib: ['es2023'],
+    },
+  },
+
   // Runtime deps bundled into the package
   bundledDeps: [
     'commander',
+    '@aws-sdk/client-cloudformation',
     '@aws-sdk/client-cognito-identity-provider',
     '@aws-sdk/client-secrets-manager',
     '@aws-sdk/client-dynamodb',
     '@aws-sdk/lib-dynamodb',
-    'uuid',
   ],
 
-  // Dev-only deps
-  devDeps: ['esbuild', '@types/aws-lambda', '@types/uuid'],
+  devDeps: ['esbuild', '@types/aws-lambda'],
 
   // npm discoverability
   keywords: [
@@ -70,11 +80,28 @@ project.eslint?.addOverride({
   },
 })
 
+// Pre-bundle Lambda handlers so consumers don't need esbuild or Docker
+const bundleTask = project.addTask('bundle-lambdas', {
+  description: 'Bundle Lambda handlers with esbuild',
+})
+
+const handlers = [
+  'propose', 'approve', 'reject', 'list-changes',
+  'history', 'rollback', 'diff', 'cleanup',
+]
+
+for (const handler of handlers) {
+  bundleTask.exec(
+    `esbuild src/lambda/handlers/${handler}.ts --bundle --platform=node --target=node22 --minify --sourcemap --outfile=lib/lambda-bundles/${handler}/index.js`,
+  )
+}
+
+project.preCompileTask.spawn(bundleTask)
+
 // Add CLI bin entry
 project.addBins({ sr: 'lib/cli/index.js' })
 
-// Ensure Lambda source and frontend are included in the npm package
-// NodejsFunction needs the TS source at synth time
-project.npmignore?.addPatterns('!/src/lambda/', '!/src/frontend/')
+// Frontend HTML is still needed at deploy time
+project.npmignore?.addPatterns('!/src/frontend/')
 
 project.synth()

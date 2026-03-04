@@ -1,6 +1,11 @@
-import * as fs from 'fs'
+import * as fs from 'node:fs'
 
-export function parseEnvFile(filepath: string): Record<string, string> {
+const DIFF_SYMBOLS: Record<string, string> = { added: '+', removed: '-', modified: '~' }
+
+export const formatDiffSymbol = (type: string): string =>
+  DIFF_SYMBOLS[type] ?? '?'
+
+export const parseEnvFile = (filepath: string): Record<string, string> => {
   const content = fs.readFileSync(filepath, 'utf-8')
   const variables: Record<string, string> = {}
 
@@ -13,7 +18,6 @@ export function parseEnvFile(filepath: string): Record<string, string> {
     const key = line.substring(0, eqIndex).trim()
     let value = line.substring(eqIndex + 1).trim()
 
-    // Strip surrounding quotes
     if (
       value.length >= 2 &&
       value[0] === value[value.length - 1] &&
@@ -28,15 +32,14 @@ export function parseEnvFile(filepath: string): Record<string, string> {
   return variables
 }
 
-export function writeEnvFile(
+export const writeEnvFile = (
   variables: Record<string, string>,
   filepath: string,
-): void {
+): void => {
   const lines: string[] = []
 
   for (const key of Object.keys(variables).sort()) {
     let value = variables[key]
-    // Quote values with spaces or special chars
     if (/[\s"'#]/.test(value)) {
       value = `"${value}"`
     }

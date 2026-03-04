@@ -6,22 +6,24 @@ import {
 import { Command } from 'commander'
 import { requireConfig } from '../auth'
 import { writeEnvFile } from '../env-parser'
+import { resolveProjectEnv } from '../resolve-defaults'
 
-export function registerPullCommand(program: Command): void {
+export const registerPullCommand = (program: Command): void => {
   program
     .command('pull')
     .description(
       'Pull current secrets into a .env file (reads Secrets Manager directly via AWS SDK)',
     )
-    .requiredOption('-p, --project <project>', 'Project name')
-    .requiredOption('-e, --env <env>', 'Environment name')
+    .option('-p, --project <project>', 'Project name')
+    .option('-e, --env <env>', 'Environment name')
     .option('-o, --output <file>', 'Output .env file path', '.env')
     .option('--keys-only', 'Only show variable keys, not values')
     .action(async (opts) => {
       const config = requireConfig([])
+      const { project, env } = resolveProjectEnv(opts, config)
       const region = config.region || process.env.AWS_REGION || 'us-east-1'
       const prefix = config.secretPrefix || 'secret-review/'
-      const secretName = `${prefix}${opts.project}/${opts.env}`
+      const secretName = `${prefix}${project}/${env}`
 
       console.log(`Reading secrets from: ${secretName}`)
       console.log('Using AWS SDK directly (IAM credentials)\n')
@@ -41,12 +43,12 @@ export function registerPullCommand(program: Command): void {
         const keys = Object.keys(values)
 
         if (keys.length === 0) {
-          console.log(`No variables found for ${opts.project}/${opts.env}`)
+          console.log(`No variables found for ${project}/${env}`)
           return
         }
 
         if (opts.keysOnly) {
-          console.log(`Variables in ${opts.project}/${opts.env}:`)
+          console.log(`Variables in ${project}/${env}:`)
           for (const key of keys.sort()) {
             console.log(`  ${key}`)
           }

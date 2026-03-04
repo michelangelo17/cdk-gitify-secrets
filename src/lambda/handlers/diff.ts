@@ -5,9 +5,9 @@ import type {
 import { getChangeById } from './shared/dynamo'
 import { ok, error } from './shared/response'
 
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const changeId = event.pathParameters?.changeId
     if (!changeId) {
@@ -19,7 +19,6 @@ export async function handler(
       return error(404, 'Change not found')
     }
 
-    // Returns key names and change types only -- never any secret values
     return ok({
       changeId: change.changeId,
       project: change.project,

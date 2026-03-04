@@ -1,46 +1,12 @@
-import * as readline from 'readline'
 import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
 import { Command } from 'commander'
 import { requireConfig, saveConfig, getConfigPath } from '../auth'
+import { prompt } from '../prompt'
 
-function prompt(question: string, hidden = false): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    })
-
-    if (hidden) {
-      // Mask password input
-      const stdin = process.stdin
-      const onData = (char: Buffer) => {
-        const c = char.toString()
-        if (c === '\n' || c === '\r') return
-        process.stdout.write('*')
-      }
-
-      process.stdout.write(question)
-      stdin.on('data', onData)
-
-      rl.question('', (answer) => {
-        stdin.removeListener('data', onData)
-        process.stdout.write('\n')
-        rl.close()
-        resolve(answer)
-      })
-    } else {
-      rl.question(question, (answer) => {
-        rl.close()
-        resolve(answer)
-      })
-    }
-  })
-}
-
-export function registerLoginCommand(program: Command): void {
+export const registerLoginCommand = (program: Command): void => {
   program
     .command('login')
     .description('Authenticate with Cognito and store tokens')
@@ -50,7 +16,7 @@ export function registerLoginCommand(program: Command): void {
       const config = requireConfig(['region', 'clientId'])
 
       const email = opts.email || (await prompt('Email: '))
-      const password = opts.password || (await prompt('Password: '))
+      const password = opts.password || (await prompt('Password: ', true))
 
       try {
         const client = new CognitoIdentityProviderClient({
@@ -90,9 +56,9 @@ export function registerLoginCommand(program: Command): void {
           console.error('Authentication failed.')
           process.exit(1)
         }
-      } catch (e: unknown) {
-        const err = e as Error
-        console.error(`Login failed: ${err.message}`)
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e)
+        console.error(`Login failed: ${message}`)
         process.exit(1)
       }
     })

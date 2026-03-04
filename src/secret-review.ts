@@ -1,4 +1,4 @@
-import * as path from 'path'
+import * as path from 'node:path'
 import { Duration, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
@@ -12,14 +12,13 @@ import * as events from 'aws-cdk-lib/aws-events'
 import * as eventsTargets from 'aws-cdk-lib/aws-events-targets'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as kms from 'aws-cdk-lib/aws-kms'
-import { Runtime } from 'aws-cdk-lib/aws-lambda'
-import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs'
+import * as lambda from 'aws-cdk-lib/aws-lambda'
 import * as s3 from 'aws-cdk-lib/aws-s3'
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import { Construct } from 'constructs'
 
-const HANDLERS_DIR = path.join(__dirname, '..', 'src', 'lambda', 'handlers')
+const HANDLERS_DIR = path.join(__dirname, '..', 'lib', 'lambda-bundles')
 
 /**
  * Configuration for a project managed by SecretReview.
@@ -420,20 +419,15 @@ export class SecretReview extends Construct {
       })
     }
 
-    // ─── Lambda Functions (NodejsFunction with esbuild) ────────
-    const createHandler = (name: string, entryFile: string): NodejsFunction => {
-      return new NodejsFunction(this, `${name}Fn`, {
-        runtime: Runtime.NODEJS_20_X,
-        entry: path.join(HANDLERS_DIR, entryFile),
-        handler: 'handler',
+    // ─── Lambda Functions (pre-bundled) ────────────────────────
+    const createHandler = (name: string, handlerDir: string): lambda.Function => {
+      return new lambda.Function(this, `${name}Fn`, {
+        runtime: lambda.Runtime.NODEJS_22_X,
+        code: lambda.Code.fromAsset(path.join(HANDLERS_DIR, handlerDir)),
+        handler: 'index.handler',
         environment: sharedEnv,
         timeout: Duration.seconds(30),
         memorySize: 256,
-        bundling: {
-          externalModules: [],
-          minify: true,
-          sourceMap: true,
-        },
         ...(lambdaVpcConfig
           ? {
             vpc: lambdaVpcConfig.vpc,
@@ -444,14 +438,14 @@ export class SecretReview extends Construct {
       })
     }
 
-    const proposeFn = createHandler('Propose', 'propose.ts')
-    const approveFn = createHandler('Approve', 'approve.ts')
-    const rejectFn = createHandler('Reject', 'reject.ts')
-    const listFn = createHandler('List', 'list-changes.ts')
-    const historyFn = createHandler('History', 'history.ts')
-    const rollbackFn = createHandler('Rollback', 'rollback.ts')
-    const diffFn = createHandler('Diff', 'diff.ts')
-    const cleanupFn = createHandler('Cleanup', 'cleanup.ts')
+    const proposeFn = createHandler('Propose', 'propose')
+    const approveFn = createHandler('Approve', 'approve')
+    const rejectFn = createHandler('Reject', 'reject')
+    const listFn = createHandler('List', 'list-changes')
+    const historyFn = createHandler('History', 'history')
+    const rollbackFn = createHandler('Rollback', 'rollback')
+    const diffFn = createHandler('Diff', 'diff')
+    const cleanupFn = createHandler('Cleanup', 'cleanup')
 
     // ─── IAM: Scoped per handler ───────────────────────────────
 
@@ -592,7 +586,7 @@ export class SecretReview extends Construct {
     const addRoute = (
       method: apigatewayv2.HttpMethod,
       routePath: string,
-      fn: NodejsFunction,
+      fn: lambda.Function,
     ) => {
       httpApi.addRoutes({
         path: routePath,

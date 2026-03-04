@@ -11,6 +11,7 @@
   "scripts": {
     "build": "npx projen build",
     "bump": "npx projen bump",
+    "bundle-lambdas": "npx projen bundle-lambdas",
     "clobber": "npx projen clobber",
     "compat": "npx projen compat",
     "compile": "npx projen compile",
@@ -42,7 +43,6 @@
     "@types/aws-lambda": "^8.10.160",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.2.3",
-    "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8",
     "@typescript-eslint/parser": "^8",
     "aws-cdk-lib": "2.170.0",
@@ -69,20 +69,20 @@
     "constructs": "^10.0.5"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudformation": "^3.1001.0",
     "@aws-sdk/client-cognito-identity-provider": "^3.991.0",
     "@aws-sdk/client-dynamodb": "^3.991.0",
     "@aws-sdk/client-secrets-manager": "^3.991.0",
     "@aws-sdk/lib-dynamodb": "^3.991.0",
-    "commander": "^14.0.3",
-    "uuid": "^8.3.2"
+    "commander": "^14.0.3"
   },
   "bundledDependencies": [
+    "@aws-sdk/client-cloudformation",
     "@aws-sdk/client-cognito-identity-provider",
     "@aws-sdk/client-dynamodb",
     "@aws-sdk/client-secrets-manager",
     "@aws-sdk/lib-dynamodb",
-    "commander",
-    "uuid"
+    "commander"
   ],
   "keywords": [
     "aws",

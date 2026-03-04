@@ -8,9 +8,9 @@ import { ok, error } from './shared/response'
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 100
 
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const statusFilter = event.queryStringParameters?.status
     const limitParam = event.queryStringParameters?.limit
@@ -46,18 +46,14 @@ export async function handler(
       changes = result.items
       lastEvaluatedKey = result.lastEvaluatedKey
     } else {
-      // Without a status filter, query all statuses and merge
-      // Note: pagination doesn't apply cleanly across multiple queries,
-      // so we fetch `limit` from each and merge + sort + truncate
       const [pending, approved, rejected] = await Promise.all([
         queryChangesByStatus('pending', limit),
         queryChangesByStatus('approved', limit),
         queryChangesByStatus('rejected', limit),
       ])
       changes = [...pending.items, ...approved.items, ...rejected.items]
-      changes.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      changes = changes.slice(0, limit)
-      // Multi-status pagination is approximate; omit nextToken for simplicity
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+        .slice(0, limit)
     }
 
     const summaries = changes.map((c) => ({

@@ -3,6 +3,7 @@ import type {
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
 import { getUserEmail } from './shared/auth'
+import { config } from './shared/config'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
 import { ok, error } from './shared/response'
 import {
@@ -13,11 +14,9 @@ import {
 } from './shared/secrets'
 import type { ApproveRejectBody } from './shared/types'
 
-const PREVENT_SELF_APPROVAL = process.env.PREVENT_SELF_APPROVAL !== 'false'
-
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const changeId = event.pathParameters?.changeId
     if (!changeId) {
@@ -36,11 +35,10 @@ export async function handler(
       return error(409, `Change is already ${change.status}`)
     }
 
-    if (PREVENT_SELF_APPROVAL && change.proposedBy === reviewerEmail) {
+    if (config.preventSelfApproval && change.proposedBy === reviewerEmail) {
       return error(403, 'Cannot approve your own changes')
     }
 
-    // Optimistic concurrency: verify the real secret hasn't changed since the proposal
     if (change.secretVersionId) {
       const { versionId: currentVersionId } = await getCurrentSecretValue(
         change.project,
@@ -54,7 +52,6 @@ export async function handler(
       }
     }
 
-    // Read proposed values from staging secret
     const stagingData = await getStagingSecretValue(changeId)
     if (!stagingData) {
       return error(
@@ -63,19 +60,14 @@ export async function handler(
       )
     }
 
-    // Capture the real secret's current VersionId before writing (for rollback)
     const { versionId: previousVersionId } = await getCurrentSecretValue(
       change.project,
       change.env,
     )
 
-    // Write proposed values to the real secret
     await putSecretValue(change.project, change.env, stagingData.proposed)
-
-    // Delete the staging secret
     await deleteStagingSecret(changeId)
 
-    // Update DynamoDB status, including previousVersionId and currentKeys
     await updateChangeStatus(
       change.pk,
       change.sk,

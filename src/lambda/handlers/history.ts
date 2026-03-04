@@ -8,9 +8,9 @@ import { ok, error } from './shared/response'
 const DEFAULT_LIMIT = 50
 const MAX_LIMIT = 100
 
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const project = event.pathParameters?.project
     const env = event.pathParameters?.env
@@ -19,7 +19,6 @@ export async function handler(
       return error(400, 'Missing project or env')
     }
 
-    // Pagination params
     const limitParam = event.queryStringParameters?.limit
     const nextTokenParam = event.queryStringParameters?.nextToken
 
@@ -45,7 +44,6 @@ export async function handler(
       exclusiveStartKey,
     )
 
-    // Get currentKeys from the most recent approved change (no Secrets Manager call)
     const latestApproved = changes.find(
       (c) => c.status === 'approved' && c.currentKeys,
     )

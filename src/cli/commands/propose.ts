@@ -1,4 +1,5 @@
-import * as fs from 'fs'
+import { randomUUID } from 'node:crypto'
+import * as fs from 'node:fs'
 import {
   SecretsManagerClient,
   CreateSecretCommand,
@@ -7,20 +8,22 @@ import {
   ResourceNotFoundException,
 } from '@aws-sdk/client-secrets-manager'
 import { Command } from 'commander'
-import { v4 as uuidv4 } from 'uuid'
 import { requireConfig, apiRequest } from '../auth'
-import { parseEnvFile } from '../env-parser'
+import { formatDiffSymbol, parseEnvFile } from '../env-parser'
+import { resolveProjectEnv } from '../resolve-defaults'
 
-export function registerProposeCommand(program: Command): void {
+export const registerProposeCommand = (program: Command): void => {
   program
     .command('propose')
     .description('Propose a change from a .env file')
-    .requiredOption('-p, --project <project>', 'Project name')
-    .requiredOption('-e, --env <env>', 'Environment name')
-    .requiredOption('-r, --reason <reason>', 'Reason for the change')
+    .option('-p, --project <project>', 'Project name')
+    .option('-e, --env <env>', 'Environment name')
+    .option('-r, --reason <reason>', 'Reason for the change')
     .option('-f, --file <file>', 'Path to .env file', '.env')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
+      const { project, env } = resolveProjectEnv(opts, config)
+      const reason = opts.reason ?? `Update ${project}/${env}`
 
       if (!fs.existsSync(opts.file)) {
         console.error(`File not found: ${opts.file}`)
@@ -36,19 +39,18 @@ export function registerProposeCommand(program: Command): void {
 
       const region = config.region!
       const prefix = config.secretPrefix || 'secret-review/'
-      const realSecretName = `${prefix}${opts.project}/${opts.env}`
+      const realSecretName = `${prefix}${project}/${env}`
 
       console.log(
-        `Proposing ${Object.keys(variables).length} variable(s) for ${opts.project}/${opts.env}`,
+        `Proposing ${Object.keys(variables).length} variable(s) for ${project}/${env}`,
       )
-      console.log(`  Reason: ${opts.reason}`)
+      console.log(`  Reason: ${reason}`)
       console.log(
         '  Using AWS SDK to create staging secret (IAM credentials)\n',
       )
 
       const smClient = new SecretsManagerClient({ region })
 
-      // Read current secret values for the staging payload
       let currentValues: Record<string, string> = {}
       try {
         const current = await smClient.send(
@@ -58,33 +60,29 @@ export function registerProposeCommand(program: Command): void {
           currentValues = JSON.parse(current.SecretString)
         }
       } catch (e) {
-        if (e instanceof ResourceNotFoundException) {
-          // Secret doesn't exist yet -- that's fine, empty baseline
-        } else {
+        if (!(e instanceof ResourceNotFoundException)) {
           throw e
         }
       }
 
-      // Create the staging secret directly via AWS SDK
-      const changeId = uuidv4()
+      const changeId = randomUUID()
       const stagingSecretName = `${prefix}pending/${changeId}`
 
       const payload = {
         proposed: variables,
         previous: currentValues,
-        project: opts.project,
-        env: opts.env,
+        project,
+        env,
       }
 
       const createResult = await smClient.send(
         new CreateSecretCommand({
           Name: stagingSecretName,
           SecretString: JSON.stringify(payload),
-          Description: `Staging secret for change ${changeId} (${opts.project}/${opts.env})`,
+          Description: `Staging secret for change ${changeId} (${project}/${env})`,
         }),
       )
 
-      // Tag for cleanup
       if (createResult.ARN) {
         await smClient.send(
           new TagResourceCommand({
@@ -100,12 +98,11 @@ export function registerProposeCommand(program: Command): void {
 
       console.log(`  Staging secret created: ${stagingSecretName}`)
 
-      // Call the API with metadata only -- no secret values in the HTTP request
       const data = await apiRequest('POST', '/changes', config, {
-        project: opts.project,
-        env: opts.env,
+        project,
+        env,
         stagingSecretName,
-        reason: opts.reason,
+        reason,
       })
 
       if (data.changeId) {
@@ -115,9 +112,7 @@ export function registerProposeCommand(program: Command): void {
         if (diff && diff.length > 0) {
           console.log('  Changes detected:')
           for (const d of diff) {
-            const sym =
-              { added: '+', removed: '-', modified: '~' }[d.type] ?? '?'
-            console.log(`    ${sym} ${d.key}`)
+            console.log(`    ${formatDiffSymbol(d.type)} ${d.key}`)
           }
           console.log()
         }

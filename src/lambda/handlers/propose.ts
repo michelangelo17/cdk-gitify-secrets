@@ -3,6 +3,7 @@ import type {
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
 import { getUserEmail } from './shared/auth'
+import { config } from './shared/config'
 import { buildPk, buildSk, putChange } from './shared/dynamo'
 import { ok, error } from './shared/response'
 import { getCurrentSecretValue, getStagingSecretValue } from './shared/secrets'
@@ -12,14 +13,10 @@ import type {
   ProposeRequestBody,
 } from './shared/types'
 
-const PROJECTS_CONFIG: Record<string, string[]> = JSON.parse(
-  process.env.PROJECTS_CONFIG ?? '{}',
-)
-
-function computeDiff(
+const computeDiff = (
   currentValues: Record<string, string>,
   proposedValues: Record<string, string>,
-): DiffEntry[] {
+): DiffEntry[] => {
   const diff: DiffEntry[] = []
 
   for (const key of Object.keys(proposedValues)) {
@@ -39,9 +36,9 @@ function computeDiff(
   return diff
 }
 
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const body: ProposeRequestBody = JSON.parse(event.body ?? '{}')
 
@@ -52,7 +49,7 @@ export async function handler(
       )
     }
 
-    const allowedEnvs = PROJECTS_CONFIG[body.project]
+    const allowedEnvs = config.projectsConfig[body.project]
     if (!allowedEnvs || !allowedEnvs.includes(body.env)) {
       return error(
         400,
@@ -62,7 +59,7 @@ export async function handler(
 
     const proposedBy = getUserEmail(event)
 
-    const prefix = process.env.SECRETS_PREFIX ?? 'secret-review/'
+    const prefix = config.secretsPrefix
     const stagingPrefix = `${prefix}pending/`
     if (!body.stagingSecretName.startsWith(stagingPrefix)) {
       return error(400, 'Invalid staging secret name')
@@ -81,7 +78,6 @@ export async function handler(
       return error(400, 'Staging secret project/env does not match request')
     }
 
-    // Read current secret and capture VersionId for optimistic concurrency
     const { values: currentValues, versionId: secretVersionId } =
       await getCurrentSecretValue(body.project, body.env)
     const diff = computeDiff(currentValues, stagingData.proposed)

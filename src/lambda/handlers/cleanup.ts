@@ -3,7 +3,7 @@ import { listStagingSecrets, deleteStagingSecret } from './shared/secrets'
 
 const MAX_AGE_DAYS = 7
 
-export async function handler(): Promise<void> {
+export const handler = async (): Promise<void> => {
   console.log('Starting staging secret cleanup...')
 
   const stagingSecrets = await listStagingSecrets()
@@ -14,7 +14,6 @@ export async function handler(): Promise<void> {
     let shouldDelete = false
     let reason = ''
 
-    // Check age
     if (secret.createdAt) {
       const createdAt = new Date(secret.createdAt)
       const ageDays =
@@ -26,7 +25,6 @@ export async function handler(): Promise<void> {
       }
     }
 
-    // Check if the associated DynamoDB change has been resolved
     if (!shouldDelete && secret.changeId) {
       const change = await getChangeById(secret.changeId)
       if (change && change.status !== 'pending') {

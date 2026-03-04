@@ -2,36 +2,33 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
   PutSecretValueCommand,
-  CreateSecretCommand,
   DeleteSecretCommand,
   ListSecretsCommand,
   ResourceNotFoundException,
-  TagResourceCommand,
 } from '@aws-sdk/client-secrets-manager'
+
+import { config } from './config'
 
 const client = new SecretsManagerClient({})
 
-const SECRETS_PREFIX = process.env.SECRETS_PREFIX ?? 'secret-review/'
+const SECRETS_PREFIX = config.secretsPrefix
 const STAGING_PREFIX = `${SECRETS_PREFIX}pending/`
-const KMS_KEY_ID = process.env.KMS_KEY_ID
 
-export function getRealSecretName(project: string, env: string): string {
-  return `${SECRETS_PREFIX}${project}/${env}`
-}
+export const getRealSecretName = (project: string, env: string): string =>
+  `${SECRETS_PREFIX}${project}/${env}`
 
-export function getStagingSecretName(changeId: string): string {
-  return `${STAGING_PREFIX}${changeId}`
-}
+export const getStagingSecretName = (changeId: string): string =>
+  `${STAGING_PREFIX}${changeId}`
 
 export interface SecretValueWithVersion {
   values: Record<string, string>
   versionId?: string
 }
 
-export async function getCurrentSecretValue(
+export const getCurrentSecretValue = async (
   project: string,
   env: string,
-): Promise<SecretValueWithVersion> {
+): Promise<SecretValueWithVersion> => {
   const secretName = getRealSecretName(project, env)
   try {
     const result = await client.send(
@@ -52,11 +49,11 @@ export async function getCurrentSecretValue(
   }
 }
 
-export async function getSecretByVersionStage(
+export const getSecretByVersionStage = async (
   project: string,
   env: string,
   versionStage: string,
-): Promise<Record<string, string> | undefined> {
+): Promise<Record<string, string> | undefined> => {
   const secretName = getRealSecretName(project, env)
   try {
     const result = await client.send(
@@ -77,11 +74,11 @@ export async function getSecretByVersionStage(
   }
 }
 
-export async function putSecretValue(
+export const putSecretValue = async (
   project: string,
   env: string,
   values: Record<string, string>,
-): Promise<void> {
+): Promise<void> => {
   const secretName = getRealSecretName(project, env)
   await client.send(
     new PutSecretValueCommand({
@@ -91,42 +88,7 @@ export async function putSecretValue(
   )
 }
 
-export async function createStagingSecret(
-  changeId: string,
-  payload: {
-    proposed: Record<string, string>
-    previous: Record<string, string>
-    project: string
-    env: string
-  },
-): Promise<string> {
-  const secretName = getStagingSecretName(changeId)
-  const result = await client.send(
-    new CreateSecretCommand({
-      Name: secretName,
-      SecretString: JSON.stringify(payload),
-      KmsKeyId: KMS_KEY_ID,
-      Description: `Staging secret for change ${changeId} (${payload.project}/${payload.env})`,
-    }),
-  )
-
-  if (result.ARN) {
-    await client.send(
-      new TagResourceCommand({
-        SecretId: result.ARN,
-        Tags: [
-          { Key: 'createdAt', Value: new Date().toISOString() },
-          { Key: 'changeId', Value: changeId },
-          { Key: 'secretReviewStaging', Value: 'true' },
-        ],
-      }),
-    )
-  }
-
-  return secretName
-}
-
-export async function getStagingSecretValue(changeId: string): Promise<
+export const getStagingSecretValue = async (changeId: string): Promise<
   | {
     proposed: Record<string, string>
     previous: Record<string, string>
@@ -134,7 +96,7 @@ export async function getStagingSecretValue(changeId: string): Promise<
     env: string
   }
   | undefined
-> {
+> => {
   const secretName = getStagingSecretName(changeId)
   try {
     const result = await client.send(
@@ -152,7 +114,7 @@ export async function getStagingSecretValue(changeId: string): Promise<
   }
 }
 
-export async function deleteStagingSecret(changeId: string): Promise<void> {
+export const deleteStagingSecret = async (changeId: string): Promise<void> => {
   const secretName = getStagingSecretName(changeId)
   try {
     await client.send(
@@ -169,9 +131,9 @@ export async function deleteStagingSecret(changeId: string): Promise<void> {
   }
 }
 
-export async function listStagingSecrets(): Promise<
+export const listStagingSecrets = async (): Promise<
   Array<{ name: string; arn: string; createdAt?: string; changeId?: string }>
-> {
+> => {
   const secrets: Array<{
     name: string
     arn: string

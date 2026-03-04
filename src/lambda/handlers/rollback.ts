@@ -1,17 +1,17 @@
+import { randomUUID } from 'node:crypto'
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { v4 as uuidv4 } from 'uuid'
 import { getUserEmail } from './shared/auth'
 import { getChangeById, buildPk, buildSk, putChange } from './shared/dynamo'
 import { ok, error } from './shared/response'
 import { getSecretByVersionStage, putSecretValue } from './shared/secrets'
 import type { ChangeRequest, RollbackBody } from './shared/types'
 
-export async function handler(
+export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
-): Promise<APIGatewayProxyResultV2> {
+): Promise<APIGatewayProxyResultV2> => {
   try {
     const body: RollbackBody = JSON.parse(event.body ?? '{}')
 
@@ -30,8 +30,6 @@ export async function handler(
       return error(400, 'Can only rollback approved changes')
     }
 
-    // Use Secrets Manager's native AWSPREVIOUS version stage to get the
-    // state of the real secret before the approval write
     const rollbackValues = await getSecretByVersionStage(
       targetChange.project,
       targetChange.env,
@@ -45,11 +43,9 @@ export async function handler(
       )
     }
 
-    // Write the previous values back to the real secret
     await putSecretValue(targetChange.project, targetChange.env, rollbackValues)
 
-    // Create a rollback record in DynamoDB
-    const rollbackId = uuidv4()
+    const rollbackId = randomUUID()
     const createdAt = new Date().toISOString()
     const pk = buildPk(targetChange.project, targetChange.env)
     const sk = buildSk(createdAt, rollbackId)

@@ -54,8 +54,8 @@ jest.mock('@aws-sdk/lib-dynamodb', () => ({
   })),
 }))
 
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'rollback-uuid-123'),
+jest.mock('node:crypto', () => ({
+  randomUUID: jest.fn(() => 'rollback-uuid-123'),
 }))
 
 process.env.TABLE_NAME = 'test-table'

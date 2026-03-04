@@ -1,7 +1,8 @@
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
+import { formatDiffSymbol } from '../env-parser'
 
-export function registerStatusCommand(program: Command): void {
+export const registerStatusCommand = (program: Command): void => {
   program
     .command('status')
     .description('Check pending changes or inspect a specific change')
@@ -31,9 +32,7 @@ export function registerStatusCommand(program: Command): void {
         if (diff && diff.length > 0) {
           console.log('\nChanges:')
           for (const d of diff) {
-            const sym =
-              { added: '+', removed: '-', modified: '~' }[d.type] ?? '?'
-            console.log(`  ${sym} ${d.key}`)
+            console.log(`  ${formatDiffSymbol(d.type)} ${d.key}`)
           }
         }
       } else {

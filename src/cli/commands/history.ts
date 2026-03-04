@@ -1,28 +1,30 @@
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
+import { resolveProjectEnv } from '../resolve-defaults'
 
-export function registerHistoryCommand(program: Command): void {
+export const registerHistoryCommand = (program: Command): void => {
   program
     .command('history')
     .description('View change history for a project/environment')
-    .requiredOption('-p, --project <project>', 'Project name')
-    .requiredOption('-e, --env <env>', 'Environment name')
+    .option('-p, --project <project>', 'Project name')
+    .option('-e, --env <env>', 'Environment name')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
+      const { project, env } = resolveProjectEnv(opts, config)
 
       const data = await apiRequest(
         'GET',
-        `/history/${opts.project}/${opts.env}`,
+        `/history/${project}/${env}`,
         config,
       )
 
       const history = data.history as Array<Record<string, unknown>>
       if (!history || history.length === 0) {
-        console.log(`No history for ${opts.project}/${opts.env}`)
+        console.log(`No history for ${project}/${env}`)
         return
       }
 
-      console.log(`History for ${opts.project}/${opts.env}\n`)
+      console.log(`History for ${project}/${env}\n`)
       console.log(
         `  ${'ID'.padEnd(14)} ${'Status'.padEnd(10)} ${'By'.padEnd(25)} Reason`,
       )

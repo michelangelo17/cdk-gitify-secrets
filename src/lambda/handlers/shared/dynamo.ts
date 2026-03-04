@@ -2,26 +2,24 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import {
   DynamoDBDocumentClient,
   PutCommand,
-  GetCommand,
   QueryCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb'
+import { config } from './config'
 import type { ChangeRequest } from './types'
 
 const client = new DynamoDBClient({})
 const docClient = DynamoDBDocumentClient.from(client)
 
-const TABLE_NAME = process.env.TABLE_NAME!
+const { tableName: TABLE_NAME } = config
 
-export function buildPk(project: string, env: string): string {
-  return `PROJECT#${project}#ENV#${env}`
-}
+export const buildPk = (project: string, env: string): string =>
+  `PROJECT#${project}#ENV#${env}`
 
-export function buildSk(createdAt: string, changeId: string): string {
-  return `CHANGE#${createdAt}#${changeId}`
-}
+export const buildSk = (createdAt: string, changeId: string): string =>
+  `CHANGE#${createdAt}#${changeId}`
 
-export async function putChange(change: ChangeRequest): Promise<void> {
+export const putChange = async (change: ChangeRequest): Promise<void> => {
   await docClient.send(
     new PutCommand({
       TableName: TABLE_NAME,
@@ -30,22 +28,9 @@ export async function putChange(change: ChangeRequest): Promise<void> {
   )
 }
 
-export async function getChange(
-  pk: string,
-  sk: string,
-): Promise<ChangeRequest | undefined> {
-  const result = await docClient.send(
-    new GetCommand({
-      TableName: TABLE_NAME,
-      Key: { pk, sk },
-    }),
-  )
-  return result.Item as ChangeRequest | undefined
-}
-
-export async function getChangeById(
+export const getChangeById = async (
   changeId: string,
-): Promise<ChangeRequest | undefined> {
+): Promise<ChangeRequest | undefined> => {
   const result = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -63,12 +48,12 @@ export interface PaginatedResult {
   lastEvaluatedKey?: Record<string, unknown>
 }
 
-export async function queryChangesByProject(
+export const queryChangesByProject = async (
   project: string,
   env: string,
   limit?: number,
   exclusiveStartKey?: Record<string, unknown>,
-): Promise<PaginatedResult> {
+): Promise<PaginatedResult> => {
   const pk = buildPk(project, env)
   const result = await docClient.send(
     new QueryCommand({
@@ -88,11 +73,11 @@ export async function queryChangesByProject(
   }
 }
 
-export async function queryChangesByStatus(
+export const queryChangesByStatus = async (
   status: string,
   limit?: number,
   exclusiveStartKey?: Record<string, unknown>,
-): Promise<PaginatedResult> {
+): Promise<PaginatedResult> => {
   const result = await docClient.send(
     new QueryCommand({
       TableName: TABLE_NAME,
@@ -118,14 +103,14 @@ export interface UpdateChangeStatusExtras {
   currentKeys?: string[]
 }
 
-export async function updateChangeStatus(
+export const updateChangeStatus = async (
   pk: string,
   sk: string,
   status: string,
   reviewedBy: string,
   comment?: string,
   extras?: UpdateChangeStatusExtras,
-): Promise<void> {
+): Promise<void> => {
   const now = new Date().toISOString()
 
   const expressionParts = [

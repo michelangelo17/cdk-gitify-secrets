@@ -1,52 +1,45 @@
 export interface ChangeRequest {
-  pk: string
-  sk: string
-  changeId: string
-  project: string
-  env: string
-  status: 'pending' | 'approved' | 'rejected'
-  proposedBy: string
-  stagingSecretName: string
-  diff: DiffEntry[]
-  diffCount: number
-  reason: string
-  comment?: string
-  reviewedBy?: string
-  reviewedAt?: string
-  createdAt: string
-  ttl?: number
+  readonly pk: string
+  readonly sk: string
+  readonly changeId: string
+  readonly project: string
+  readonly env: string
+  readonly status: 'pending' | 'approved' | 'rejected'
+  readonly proposedBy: string
+  readonly stagingSecretName: string
+  readonly diff: DiffEntry[]
+  readonly diffCount: number
+  readonly reason: string
+  readonly comment?: string
+  readonly reviewedBy?: string
+  readonly reviewedAt?: string
+  readonly createdAt: string
+  readonly ttl?: number
   /** Secrets Manager VersionId of the real secret at proposal time (for optimistic concurrency) */
-  secretVersionId?: string
+  readonly secretVersionId?: string
   /** Secrets Manager VersionId of the real secret before an approval write (for rollback) */
-  previousVersionId?: string
+  readonly previousVersionId?: string
   /** Key names of the real secret after approval (avoids reading full secret for history) */
-  currentKeys?: string[]
+  readonly currentKeys?: string[]
 }
 
 export interface DiffEntry {
-  type: 'added' | 'removed' | 'modified'
-  key: string
+  readonly type: 'added' | 'removed' | 'modified'
+  readonly key: string
 }
 
 export interface ProposeRequestBody {
-  project: string
-  env: string
-  stagingSecretName: string
-  reason: string
+  readonly project: string
+  readonly env: string
+  readonly stagingSecretName: string
+  readonly reason: string
 }
 
 export interface ApproveRejectBody {
-  comment?: string
+  readonly comment?: string
 }
 
 export interface RollbackBody {
-  changeId: string
-  reason: string
-}
-
-export interface StagingSecretPayload {
-  proposed: Record<string, string>
-  previous: Record<string, string>
-  project: string
-  env: string
+  readonly changeId: string
+  readonly reason: string
 }
