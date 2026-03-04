@@ -63,6 +63,32 @@ describe('configFromStack', () => {
     })
   })
 
+  test('matches CDK-generated output keys with prefix and hash suffix', async () => {
+    mockCfnSend.mockResolvedValue({
+      Stacks: [
+        {
+          Outputs: [
+            { OutputKey: 'SecretReviewApiUrl96A20576', OutputValue: 'https://xxx.execute-api.us-west-2.amazonaws.com/' },
+            { OutputKey: 'SecretReviewUserPoolId4B18B7C1', OutputValue: 'us-west-2_pXVYocgMs' },
+            { OutputKey: 'SecretReviewUserPoolClientIdD877B95D', OutputValue: '7r4arb941iqcqukpfm00qd04li' },
+            { OutputKey: 'SecretReviewSecretPrefixE22BDC15', OutputValue: 'secret-review/' },
+            { OutputKey: 'SecretReviewFrontendUrl0E9D6828', OutputValue: 'https://d2o338jzjmykgt.cloudfront.net' },
+          ],
+        },
+      ],
+    })
+
+    const result = await configFromStack('SecretReviewStack', 'us-west-2')
+
+    expect(result).toEqual({
+      region: 'us-west-2',
+      apiUrl: 'https://xxx.execute-api.us-west-2.amazonaws.com/',
+      userPoolId: 'us-west-2_pXVYocgMs',
+      clientId: '7r4arb941iqcqukpfm00qd04li',
+      secretPrefix: 'secret-review/',
+    })
+  })
+
   test('works with missing optional outputs', async () => {
     mockCfnSend.mockResolvedValue({
       Stacks: [

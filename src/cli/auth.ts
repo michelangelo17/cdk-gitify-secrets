@@ -163,12 +163,15 @@ export const apiRequest = async (
   return (await resp.json()) as Record<string, unknown>
 }
 
-const OUTPUT_KEY_MAP: Record<string, keyof CliConfig> = {
-  ApiUrl: 'apiUrl',
-  UserPoolId: 'userPoolId',
-  UserPoolClientId: 'clientId',
-  SecretPrefix: 'secretPrefix',
-}
+// CDK generates output keys like "SecretReviewApiUrl96A20576" (construct path
+// + hash). Match by checking if the key contains the expected suffix.
+// Order matters: UserPoolClientId must be checked before UserPoolId.
+const OUTPUT_PATTERNS: Array<[string, keyof CliConfig]> = [
+  ['UserPoolClientId', 'clientId'],
+  ['UserPoolId', 'userPoolId'],
+  ['SecretPrefix', 'secretPrefix'],
+  ['ApiUrl', 'apiUrl'],
+]
 
 export const configFromStack = async (
   stackName: string,
@@ -205,9 +208,11 @@ export const configFromStack = async (
 
   for (const output of stack.Outputs ?? []) {
     const key = output.OutputKey
-    const configKey = key ? OUTPUT_KEY_MAP[key] : undefined
-    if (configKey && output.OutputValue) {
-      (result as Record<string, string>)[configKey] = output.OutputValue
+    if (!key || !output.OutputValue) continue
+
+    const match = OUTPUT_PATTERNS.find(([suffix]) => key.includes(suffix))
+    if (match) {
+      (result as Record<string, string>)[match[1]] = output.OutputValue
     }
   }
 
