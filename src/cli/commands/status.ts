@@ -86,9 +86,9 @@ export const registerStatusCommand = (program: Command): void => {
       }
 
       console.log(`\n${DIM}Quick actions:${RESET}`)
-      console.log('  sr approve --latest')
       for (const c of changes) {
         const sid = shortId(String(c.changeId ?? ''))
+        console.log(`  sr approve --id ${sid}`)
         console.log(`  sr review  --id ${sid}`)
       }
       console.log()

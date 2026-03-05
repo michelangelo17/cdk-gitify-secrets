@@ -11,9 +11,9 @@ const printQuickActions = (
   if (pending.length === 0) return
 
   console.log(`\n${DIM}Quick actions:${RESET}`)
-  console.log('  sr approve --latest')
   for (const c of pending) {
     const sid = shortId(String(c.changeId ?? ''))
+    console.log(`  sr approve --id ${sid}`)
     console.log(`  sr review  --id ${sid}`)
   }
 }

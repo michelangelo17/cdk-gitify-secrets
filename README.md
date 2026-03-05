@@ -447,8 +447,9 @@ $ npx sr status
   e5f6a7b8   payment-svc/staging  3d ago       Rotate DB password
 
 Quick actions:
-  sr approve --latest
+  sr approve --id a1b2c3d4
   sr review  --id a1b2c3d4
+  sr approve --id e5f6a7b8
   sr review  --id e5f6a7b8
 ```
 
