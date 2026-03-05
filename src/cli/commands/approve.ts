@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
+import { resolveChangeId } from '../change-id'
 import { CliError, handleApiError } from '../errors'
 import { confirm } from '../prompt'
 import { reviewChange, printReview } from './review'
@@ -8,15 +9,17 @@ export const registerApproveCommand = (program: Command): void => {
   program
     .command('approve')
     .description('Approve a pending change')
-    .requiredOption('--change-id <id>', 'Change ID to approve')
+    .option('--change-id <id>', 'Change ID to approve (accepts short prefix)')
+    .option('--latest', 'Approve the most recent pending change')
     .option('-c, --comment <text>', 'Approval comment')
     .option('-y, --yes', 'Skip confirmation prompt')
     .option('--skip-review', 'Skip showing the diff before approval')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
+      const changeId = await resolveChangeId(opts, config)
 
       if (!opts.skipReview) {
-        const result = await reviewChange(opts.changeId, config)
+        const result = await reviewChange(changeId, config)
         if (!result) return
         printReview(result)
 
@@ -38,13 +41,13 @@ export const registerApproveCommand = (program: Command): void => {
 
       const data = await apiRequest(
         'POST',
-        `/changes/${opts.changeId}/approve`,
+        `/changes/${changeId}/approve`,
         config,
         body,
       )
 
       if (data.error) handleApiError(data)
 
-      console.log(data.message ?? `Change ${opts.changeId} approved.`)
+      console.log(data.message ?? `Change ${changeId} approved.`)
     })
 }

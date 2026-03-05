@@ -1,7 +1,21 @@
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
-import { BOLD, RESET } from '../formatting'
+import { shortId } from '../change-id'
+import { BOLD, DIM, RESET, formatTimestamp } from '../formatting'
 import { resolveProjectEnv } from '../resolve-defaults'
+
+const printQuickActions = (
+  changes: Array<Record<string, unknown>>,
+): void => {
+  const pending = changes.filter((c) => c.status === 'pending')
+  if (pending.length === 0) return
+
+  console.log(`\n${DIM}Quick actions:${RESET}`)
+  for (const c of pending) {
+    const sid = shortId(String(c.changeId ?? ''))
+    console.log(`  sr review  --change-id ${sid}`)
+  }
+}
 
 export const registerHistoryCommand = (program: Command): void => {
   program
@@ -35,21 +49,24 @@ export const registerHistoryCommand = (program: Command): void => {
 
         console.log(`\n${BOLD}History for ${project}/${env}${RESET}\n`)
         console.log(
-          `  ${'ID'.padEnd(14)} ${'Status'.padEnd(10)} ${'By'.padEnd(25)} Reason`,
+          `  ${'ID'.padEnd(10)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(20)} ${'By'.padEnd(25)} Reason`,
         )
         console.log(
-          `  ${'─'.repeat(14)} ${'─'.repeat(10)} ${'─'.repeat(25)} ${'─'.repeat(30)}`,
+          `  ${'─'.repeat(10)} ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(25)} ${'─'.repeat(30)}`,
         )
 
         for (const h of history) {
-          const cid = String(h.changeId ?? '?').substring(0, 12)
+          const sid = shortId(String(h.changeId ?? '?'))
           const status = String(h.status ?? '?')
+          const proposed = h.createdAt ? formatTimestamp(String(h.createdAt)) : ''
           const by = String(h.proposedBy ?? '?').substring(0, 24)
-          const reason = String(h.reason ?? '').substring(0, 40)
+          const reason = String(h.reason ?? '').substring(0, 30)
           console.log(
-            `  ${cid.padEnd(14)} ${status.padEnd(10)} ${by.padEnd(25)} ${reason}`,
+            `  ${sid.padEnd(10)} ${status.padEnd(10)} ${proposed.padEnd(20)} ${by.padEnd(25)} ${reason}`,
           )
         }
+
+        printQuickActions(history)
         console.log()
         return
       }
@@ -75,20 +92,21 @@ export const registerHistoryCommand = (program: Command): void => {
 
       console.log(`\n${BOLD}Changes${opts.project ? ` for project ${opts.project}` : ''}${RESET}\n`)
       console.log(
-        `  ${'ID'.padEnd(14)} ${'Project'.padEnd(20)} ${'Status'.padEnd(10)} ${'By'.padEnd(25)} Reason`,
+        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(20)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(20)} ${'By'.padEnd(25)} Reason`,
       )
       console.log(
-        `  ${'─'.repeat(14)} ${'─'.repeat(20)} ${'─'.repeat(10)} ${'─'.repeat(25)} ${'─'.repeat(30)}`,
+        `  ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(25)} ${'─'.repeat(30)}`,
       )
 
       for (const c of changes) {
-        const cid = String(c.changeId ?? '?').substring(0, 12)
+        const sid = shortId(String(c.changeId ?? '?'))
         const projEnv = `${c.project}/${c.env}`
         const status = String(c.status ?? '?')
+        const proposed = c.createdAt ? formatTimestamp(String(c.createdAt)) : ''
         const by = String(c.proposedBy ?? '?').substring(0, 24)
         const reason = String(c.reason ?? '').substring(0, 30)
         console.log(
-          `  ${cid.padEnd(14)} ${projEnv.padEnd(20)} ${status.padEnd(10)} ${by.padEnd(25)} ${reason}`,
+          `  ${sid.padEnd(10)} ${projEnv.padEnd(20)} ${status.padEnd(10)} ${proposed.padEnd(20)} ${by.padEnd(25)} ${reason}`,
         )
       }
 
@@ -96,6 +114,8 @@ export const registerHistoryCommand = (program: Command): void => {
       if (nextToken) {
         console.log(`\n  Next page: sr history --all --next-token ${nextToken}`)
       }
+
+      printQuickActions(changes)
       console.log()
     })
 }

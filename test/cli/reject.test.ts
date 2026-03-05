@@ -13,6 +13,11 @@ jest.mock('../../src/cli/auth', () => ({
   awsCredentials: jest.fn(() => undefined),
 }))
 
+const mockResolveChangeId = jest.fn()
+jest.mock('../../src/cli/change-id', () => ({
+  resolveChangeId: mockResolveChangeId,
+}))
+
 const mockConfirm = jest.fn()
 jest.mock('../../src/cli/prompt', () => ({
   confirm: mockConfirm,
@@ -36,6 +41,7 @@ describe('sr reject', () => {
     program = new Command()
     program.exitOverride()
     registerRejectCommand(program)
+    mockResolveChangeId.mockResolvedValue('change-1')
   })
 
   test('shows review, asks for confirmation, calls reject API', async () => {
@@ -52,12 +58,43 @@ describe('sr reject', () => {
     await program.parseAsync(['node', 'sr', 'reject', '--change-id', 'change-1'])
     consoleSpy.mockRestore()
 
+    expect(mockResolveChangeId).toHaveBeenCalledWith(
+      expect.objectContaining({ changeId: 'change-1' }),
+      expect.any(Object),
+    )
     expect(mockReviewChange).toHaveBeenCalledWith('change-1', expect.any(Object))
     expect(mockPrintReview).toHaveBeenCalled()
     expect(mockConfirm).toHaveBeenCalled()
     expect(mockApiRequest).toHaveBeenCalledWith(
       'POST',
       '/changes/change-1/reject',
+      expect.any(Object),
+      {},
+    )
+  })
+
+  test('supports --latest flag', async () => {
+    mockResolveChangeId.mockResolvedValue('resolved-latest-id')
+    mockReviewChange.mockResolvedValue({
+      changeId: 'resolved-latest-id',
+      status: 'pending',
+      project: 'api',
+      env: 'dev',
+    })
+    mockConfirm.mockResolvedValue(true)
+    mockApiRequest.mockResolvedValue({ message: 'Rejected' })
+
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
+    await program.parseAsync(['node', 'sr', 'reject', '--latest'])
+    consoleSpy.mockRestore()
+
+    expect(mockResolveChangeId).toHaveBeenCalledWith(
+      expect.objectContaining({ latest: true }),
+      expect.any(Object),
+    )
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      'POST',
+      '/changes/resolved-latest-id/reject',
       expect.any(Object),
       {},
     )

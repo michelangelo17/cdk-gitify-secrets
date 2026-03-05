@@ -5,6 +5,16 @@ export const DIM = '\x1b[2m'
 export const BOLD = '\x1b[1m'
 export const RESET = '\x1b[0m'
 
+export const formatTimestamp = (iso: string): string => {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
+    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+  )
+}
+
 export const printChangeSummary = (meta: {
   changeId?: unknown
   status?: unknown

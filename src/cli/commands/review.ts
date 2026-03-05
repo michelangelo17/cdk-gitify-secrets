@@ -6,6 +6,7 @@ import { Command } from 'commander'
 import type { CliConfig } from '../auth'
 import { requireConfig, apiRequest } from '../auth'
 import { createSmClient, resolveSecretPrefix } from '../aws'
+import { resolveChangeId } from '../change-id'
 import {
   RED, GREEN, YELLOW, DIM, RESET,
   printChangeSummary,
@@ -169,12 +170,14 @@ export const registerReviewCommand = (program: Command): void => {
   program
     .command('review')
     .description('Review a proposed change with full value-level diff')
-    .requiredOption('--change-id <id>', 'Change ID to review')
+    .option('--change-id <id>', 'Change ID to review (accepts short prefix)')
+    .option('--latest', 'Review the most recent pending change')
     .option('--show-all', 'Show unchanged keys too')
     .option('--json', 'Output as JSON')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
-      const result = await reviewChange(opts.changeId, config)
+      const changeId = await resolveChangeId(opts, config)
+      const result = await reviewChange(changeId, config)
       if (result) {
         printReview(result, opts)
       }
