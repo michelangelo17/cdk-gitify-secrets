@@ -9,7 +9,7 @@ export const registerRejectCommand = (program: Command): void => {
   program
     .command('reject')
     .description('Reject a pending change')
-    .option('--change-id <id>', 'Change ID to reject (accepts short prefix)')
+    .option('--id <id>', 'Change ID to reject (accepts short prefix)')
     .option('--latest', 'Reject the most recent pending change')
     .option('-c, --comment <text>', 'Rejection comment')
     .option('-y, --yes', 'Skip confirmation prompt')

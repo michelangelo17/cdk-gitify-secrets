@@ -55,11 +55,11 @@ describe('sr reject', () => {
     mockApiRequest.mockResolvedValue({ message: 'Change change-1 rejected' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--change-id', 'change-1'])
+    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1'])
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
-      expect.objectContaining({ changeId: 'change-1' }),
+      expect.objectContaining({ id: 'change-1' }),
       expect.any(Object),
     )
     expect(mockReviewChange).toHaveBeenCalledWith('change-1', expect.any(Object))
@@ -110,7 +110,7 @@ describe('sr reject', () => {
     mockConfirm.mockResolvedValue(false)
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--change-id', 'change-1'])
+    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1'])
     consoleSpy.mockRestore()
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(
@@ -125,7 +125,7 @@ describe('sr reject', () => {
     mockApiRequest.mockResolvedValue({ message: 'Rejected' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--change-id', 'change-1', '--skip-review', '-y'])
+    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1', '--skip-review', '-y'])
     consoleSpy.mockRestore()
 
     expect(mockReviewChange).not.toHaveBeenCalled()
@@ -142,7 +142,7 @@ describe('sr reject', () => {
     mockApiRequest.mockResolvedValue({ message: 'Rejected' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--change-id', 'change-1', '-y'])
+    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1', '-y'])
     consoleSpy.mockRestore()
 
     expect(mockConfirm).not.toHaveBeenCalled()
@@ -158,7 +158,7 @@ describe('sr reject', () => {
     })
 
     await expect(
-      program.parseAsync(['node', 'sr', 'reject', '--change-id', 'change-1']),
+      program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1']),
     ).rejects.toThrow('Cannot reject')
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(

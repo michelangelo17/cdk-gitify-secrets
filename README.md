@@ -4,14 +4,21 @@
 
 Deploy as a CDK construct. No extra vendors, no SaaS -- everything stays in your AWS account.
 
-## The Problem
+## Why
 
-Your CDK stack needs secrets. Today you either:
+Your app reads secrets from AWS Secrets Manager at runtime. The question is how those secrets get _into_ Secrets Manager in the first place. Common approaches:
 
-1. **Hardcode values in CDK** -- they end up in CloudFormation, CI logs, source control
-2. **Manage via AWS CLI** -- awkward JSON strings, no review process, easy to fat-finger production
+1. **AWS Console / CLI** — click through the UI or run `aws secretsmanager put-secret-value`. Works fine for one-off setup, but there's no review step, no change history beyond CloudTrail, and it's easy to fat-finger a value in production.
+2. **Deploy scripts** — a shell script reads `.env` and calls the AWS SDK. Fast, but whoever runs the script has full write access. No approval gate, no diff, no audit trail you can query without digging through CloudTrail.
+3. **CDK `Secret` construct** — reference `.env` values in your CDK code and create secrets at deploy time. Convenient, but the secret values end up in your CloudFormation template (visible in the AWS console and in deployment artifacts). Low-risk if your account is locked down, but it's still plaintext in places you might not expect.
 
-cdk-gitify-secrets fixes this by adding a **review workflow** between your `.env` file and Secrets Manager -- like a pull request for secrets.
+All three share the same gap: **there's no review workflow**. A typo, a wrong environment, or a copy-paste mistake goes straight to production with no second pair of eyes.
+
+cdk-gitify-secrets adds that missing step — a **propose → review → approve** cycle between your `.env` file and Secrets Manager, like a pull request for secrets. Secrets never pass through the API (they're written directly via the AWS SDK), and every change is tracked with diffs, approvals, and audit history.
+
+**When to use this:** teams where more than one person touches secrets, or where you want an auditable change history without relying solely on CloudTrail.
+
+**When NOT to use this:** solo projects where the overhead of a review cycle isn't worth it, or environments where secrets are fully managed by CI/CD pipelines you already trust.
 
 ## How It Works
 
@@ -24,11 +31,11 @@ Developer                          AWS Secrets Manager        cdk-gitify-secrets
     |                                     |     compute diff,        |
     |                                     |     store in DynamoDB    |
     |                                     |                          |
-    |  sr review --change-id <id>         |                          |
+    |  sr review --id <id>         |                          |
     |  (reads staging + live via SDK) --->|                          |
     |  shows colored value-level diff     |                          |
     |                                     |                          |
-    |  sr approve --change-id <id>        |                          |
+    |  sr approve --id <id>        |                          |
     |  POST /changes/{id}/approve  --------------------------->      |
     |                                     |<--- approve handler ----|
     |                                     |  copies staging -> real   |
@@ -368,13 +375,81 @@ npx sr init --stack-name MyStack --email ci@company.com --password "$SR_PASSWORD
 After init, every CLI command works with zero flags:
 
 ```bash
-npx sr propose                         # reads .sr.json, defaults reason, reads .env
-npx sr propose -r "Add Stripe key"    # override just the reason
+npx sr propose -r "Add Stripe key"    # reason is required
+npx sr propose -r "Initial setup"     # reads .sr.json defaults for project/env
 npx sr pull                            # reads .sr.json, writes to .env
 npx sr pull -e staging -o staging.env  # override env and output
 npx sr history                         # reads .sr.json
-npx sr review --change-id <id>        # full value-level diff
-npx sr approve --change-id <id>       # review + approve in one step
+npx sr review --id <id>        # full value-level diff
+npx sr approve --id <id>       # review + approve in one step
+```
+
+### Full Workflow Walkthrough
+
+Here's an end-to-end example: adding a new API key to the `backend-api/production` environment.
+
+**1. Propose a change** from your `.env` file:
+
+```bash
+$ npx sr propose -r "Add Stripe API key"
+Proposing 3 variable(s) for backend-api/production
+  Staging secret created: secret-review/pending/a1b2c3d4-...
+  Change proposed: a1b2c3d4-...
+
+  Changes detected:
+    + STRIPE_API_KEY
+
+  Run: sr review --id a1b2c3d4
+```
+
+**2. Review the diff** (reads secrets via AWS SDK, never through the API):
+
+```bash
+$ npx sr review --latest
+
+Change:  a1b2c3d4-...
+Status:  pending
+Project: backend-api/production
+By:      alice@company.com
+Reason:  Add Stripe API key
+Date:    just now
+
+  1 change(s): +1 -0 ~0
+
+  + STRIPE_API_KEY=sk_live_abc123
+```
+
+**3. Approve** (a teammate, or the same user if `preventSelfApproval: false`):
+
+```bash
+$ npx sr approve --latest
+# Shows the review diff, then prompts:
+# Approve this change? (y/N): y
+Change a1b2c3d4-... approved and applied
+```
+
+**4. Pull the updated secrets** into your local `.env`:
+
+```bash
+$ npx sr pull
+Pulled 3 variable(s) to .env
+```
+
+You can check pending changes at any time with `sr status`:
+
+```
+$ npx sr status
+2 pending change(s)
+
+  ID         Project              Proposed     Reason
+  ────────── ──────────────────── ──────────── ────────────────────────────
+  a1b2c3d4   backend-api/prod     2h ago       Add Stripe API key
+  e5f6a7b8   payment-svc/staging  3d ago       Rotate DB password
+
+Quick actions:
+  sr approve --latest
+  sr review  --id a1b2c3d4
+  sr review  --id e5f6a7b8
 ```
 
 ### Project Defaults (`.sr.json`)
@@ -440,10 +515,7 @@ Tokens are automatically refreshed when they expire. If refresh fails, run `sr l
 ### Propose a Change
 
 ```bash
-# Zero flags -- uses .sr.json defaults, reads .env, auto-generates reason
-npx sr propose
-
-# Override specific values
+# Reason is required -- like a commit message
 npx sr propose -r "Add Stripe API key"
 npx sr propose -p backend-api -e production -r "Initial secrets" -f ./secrets/prod.env
 ```
@@ -457,13 +529,13 @@ This does two things:
 
 ```bash
 # Full value-level diff (reads staging + live secrets via AWS SDK)
-npx sr review --change-id <id>
+npx sr review --id <id>
 
 # Include unchanged keys in the output
-npx sr review --change-id <id> --show-all
+npx sr review --id <id> --show-all
 
 # Machine-readable output
-npx sr review --change-id <id> --json
+npx sr review --id <id> --json
 ```
 
 The review command reads both the staging and live secrets directly from Secrets Manager using your IAM credentials, then displays a colored diff:
@@ -476,12 +548,12 @@ The review command reads both the staging and live secrets directly from Secrets
 
 ```bash
 # Approve: shows the full review diff, then asks for confirmation
-npx sr approve --change-id <id>
-npx sr approve --change-id <id> -c "Looks good" -y  # skip confirmation
+npx sr approve --id <id>
+npx sr approve --id <id> -c "Looks good" -y  # skip confirmation
 
 # Reject: shows change summary, then asks for confirmation
-npx sr reject --change-id <id>
-npx sr reject --change-id <id> -c "Wrong values" -y  # skip confirmation
+npx sr reject --id <id>
+npx sr reject --id <id> -c "Wrong values" -y  # skip confirmation
 ```
 
 When approving, the API handler copies values from the staging secret to the production secret, then deletes the staging secret. On rejection, the staging secret is deleted without applying.
@@ -527,7 +599,7 @@ npx sr status -p backend-api
 npx sr status -p backend-api -e production
 
 # Inspect a specific change
-npx sr status --change-id abc-123-def
+npx sr status --id abc-123-def
 ```
 
 ### CLI Reference
@@ -537,13 +609,13 @@ npx sr status --change-id abc-123-def
 | `sr init [--stack-name NAME] [--region REGION] [--email EMAIL] [--password PASS] [--default-project P] [--default-env E] [--skip-login]` | Interactive setup wizard |
 | `sr configure [--from-stack NAME] [options]` | Set up API URL, region, Cognito config, project defaults |
 | `sr login [--email EMAIL] [--password PASS]` | Authenticate with Cognito |
-| `sr propose [-p PROJECT] [-e ENV] [-r "reason"] [-f FILE]` | Propose changes from a .env file |
+| `sr propose -r "reason" [-p PROJECT] [-e ENV] [-f FILE]` | Propose changes from a .env file |
 | `sr pull [-p PROJECT] [-e ENV] [-o FILE] [--keys-only]` | Pull secrets via AWS SDK |
-| `sr review --change-id ID [--show-all] [--json]` | Review a change with full value-level diff |
-| `sr approve --change-id ID [-c COMMENT] [-y] [--skip-review]` | Approve a pending change |
-| `sr reject --change-id ID [-c COMMENT] [-y]` | Reject a pending change |
+| `sr review --id ID [--show-all] [--json]` | Review a change with full value-level diff |
+| `sr approve --id ID [-c COMMENT] [-y] [--skip-review]` | Approve a pending change |
+| `sr reject --id ID [-c COMMENT] [-y]` | Reject a pending change |
 | `sr history [-p PROJECT] [-e ENV] [--all] [--status S] [--limit N]` | View change history |
-| `sr status [--change-id ID] [-p PROJECT] [-e ENV]` | Check pending changes / inspect a change |
+| `sr status [--id ID] [-p PROJECT] [-e ENV]` | Check pending changes / inspect a change |
 
 ## Security Model
 

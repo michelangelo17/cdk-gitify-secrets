@@ -36,7 +36,7 @@ describe('resolveChangeId', () => {
 
   test('passes through a full UUID without any API call', async () => {
     const result = await resolveChangeId(
-      { changeId: FULL_UUID_1 },
+      { id: FULL_UUID_1 },
       DEFAULT_TEST_CONFIG,
     )
     expect(result).toBe(FULL_UUID_1)
@@ -49,7 +49,7 @@ describe('resolveChangeId', () => {
     })
 
     const result = await resolveChangeId(
-      { changeId: '64fa' },
+      { id: '64fa' },
       DEFAULT_TEST_CONFIG,
     )
     expect(result).toBe(FULL_UUID_3)
@@ -62,7 +62,7 @@ describe('resolveChangeId', () => {
     })
 
     await expect(
-      resolveChangeId({ changeId: 'bcf9fcc5' }, DEFAULT_TEST_CONFIG),
+      resolveChangeId({ id: 'bcf9fcc5' }, DEFAULT_TEST_CONFIG),
     ).rejects.toThrow('Ambiguous ID "bcf9fcc5" matches 2 changes')
   })
 
@@ -70,7 +70,7 @@ describe('resolveChangeId', () => {
     mockApiRequest.mockResolvedValue({ changes: [makeChange(FULL_UUID_1)] })
 
     await expect(
-      resolveChangeId({ changeId: 'aaaa' }, DEFAULT_TEST_CONFIG),
+      resolveChangeId({ id: 'aaaa' }, DEFAULT_TEST_CONFIG),
     ).rejects.toThrow('No change found matching "aaaa"')
   })
 
@@ -99,19 +99,19 @@ describe('resolveChangeId', () => {
     ).rejects.toThrow('No pending changes found')
   })
 
-  test('throws when both --change-id and --latest are provided', async () => {
+  test('throws when both --id and --latest are provided', async () => {
     await expect(
       resolveChangeId(
-        { changeId: FULL_UUID_1, latest: true },
+        { id: FULL_UUID_1, latest: true },
         DEFAULT_TEST_CONFIG,
       ),
-    ).rejects.toThrow('Cannot use both --change-id and --latest')
+    ).rejects.toThrow('Cannot use both --id and --latest')
   })
 
-  test('throws when neither --change-id nor --latest is provided', async () => {
+  test('throws when neither --id nor --latest is provided', async () => {
     await expect(
       resolveChangeId({}, DEFAULT_TEST_CONFIG),
-    ).rejects.toThrow('Specify --change-id <id> or --latest')
+    ).rejects.toThrow('Specify --id <id> or --latest')
   })
 
   test('ambiguous error includes project/env context', async () => {
@@ -123,7 +123,7 @@ describe('resolveChangeId', () => {
     })
 
     await expect(
-      resolveChangeId({ changeId: 'bcf9' }, DEFAULT_TEST_CONFIG),
+      resolveChangeId({ id: 'bcf9' }, DEFAULT_TEST_CONFIG),
     ).rejects.toThrow('app-a/prod')
   })
 })

@@ -170,7 +170,7 @@ export const registerReviewCommand = (program: Command): void => {
   program
     .command('review')
     .description('Review a proposed change with full value-level diff')
-    .option('--change-id <id>', 'Change ID to review (accepts short prefix)')
+    .option('--id <id>', 'Change ID to review (accepts short prefix)')
     .option('--latest', 'Review the most recent pending change')
     .option('--show-all', 'Show unchanged keys too')
     .option('--json', 'Output as JSON')
