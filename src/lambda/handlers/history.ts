@@ -5,10 +5,8 @@ import type {
 import { assertProjectAccess } from './shared/auth'
 import { config } from './shared/config'
 import { queryChangesByProject } from './shared/dynamo'
+import { encodeNextToken, parsePaginationParams } from './shared/request'
 import { ok, error } from './shared/response'
-
-const DEFAULT_LIMIT = 50
-const MAX_LIMIT = 100
 
 export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -29,23 +27,9 @@ export const handler = async (
     const accessError = assertProjectAccess(event, project)
     if (accessError) return error(403, accessError)
 
-    const limitParam = event.queryStringParameters?.limit
-    const nextTokenParam = event.queryStringParameters?.nextToken
-
-    let limit = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT
-    if (isNaN(limit) || limit < 1) limit = DEFAULT_LIMIT
-    if (limit > MAX_LIMIT) limit = MAX_LIMIT
-
-    let exclusiveStartKey: Record<string, unknown> | undefined
-    if (nextTokenParam) {
-      try {
-        exclusiveStartKey = JSON.parse(
-          Buffer.from(nextTokenParam, 'base64').toString('utf-8'),
-        )
-      } catch {
-        return error(400, 'Invalid nextToken')
-      }
-    }
+    const pagination = parsePaginationParams(event)
+    if (pagination.parseError) return pagination.parseError
+    const { limit, exclusiveStartKey } = pagination
 
     const { items: changes, lastEvaluatedKey } = await queryChangesByProject(
       project,
@@ -72,9 +56,7 @@ export const handler = async (
       comment: c.comment,
     }))
 
-    const responseNextToken = lastEvaluatedKey
-      ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64')
-      : undefined
+    const responseNextToken = encodeNextToken(lastEvaluatedKey)
 
     return ok({
       history,

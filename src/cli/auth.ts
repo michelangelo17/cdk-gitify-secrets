@@ -9,6 +9,7 @@ import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
 } from '@aws-sdk/client-cognito-identity-provider'
+import { CliError } from './errors'
 
 // When both AWS_PROFILE and AWS_ACCESS_KEY_ID are set, the SDK prefers the
 // profile. Tools like `assume` set fresh env-var credentials alongside a
@@ -80,11 +81,10 @@ export const requireConfig = (fields: string[]): CliConfig => {
   const config = loadConfig()
   const missing = fields.filter((f) => !(config as Record<string, unknown>)[f])
   if (missing.length > 0) {
-    console.error(`Missing config: ${missing.join(', ')}`)
-    console.error(
+    throw new CliError(
+      `Missing config: ${missing.join(', ')}\n` +
       'Run: sr configure --api-url <URL> --region <REGION> --client-id <ID>',
     )
-    process.exit(1)
   }
   return config
 }
@@ -122,16 +122,15 @@ export const ensureValidToken = async (config: CliConfig): Promise<string> => {
         return newToken
       }
     } catch {
-      console.error('Token refresh failed. Please run: sr login')
+      throw new CliError('Token refresh failed. Run: sr login')
     }
   }
 
-  if (config.idToken) {
-    return config.idToken
+  if (!config.idToken) {
+    throw new CliError('Not authenticated. Run: sr login')
   }
 
-  console.error('Not authenticated. Run: sr login')
-  process.exit(1)
+  return config.idToken
 }
 
 export const apiRequest = async (
@@ -144,13 +143,10 @@ export const apiRequest = async (
   const url = `${config.apiUrl!.replace(/\/$/, '')}${urlPath}`
 
   if (!url.startsWith('https://') && !url.startsWith('http://localhost')) {
-    console.error(
-      'Refusing to send credentials over insecure HTTP.',
-    )
-    console.error(
+    throw new CliError(
+      'Refusing to send credentials over insecure HTTP.\n' +
       'Your API URL must use HTTPS. Update via: sr configure',
     )
-    process.exit(1)
   }
 
   const headers: Record<string, string> = {
@@ -170,11 +166,17 @@ export const apiRequest = async (
   const resp = await fetch(url, fetchOpts)
 
   if (resp.status === 401) {
-    console.error('Authentication expired. Run: sr login')
-    process.exit(1)
+    throw new CliError('Authentication expired. Run: sr login')
   }
 
-  return (await resp.json()) as Record<string, unknown>
+  try {
+    return (await resp.json()) as Record<string, unknown>
+  } catch {
+    return {
+      error: resp.statusText || 'Request failed',
+      statusCode: resp.status,
+    }
+  }
 }
 
 // CDK generates output keys like "SecretReviewApiUrl96A20576" (construct path

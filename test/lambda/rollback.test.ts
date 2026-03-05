@@ -59,7 +59,6 @@ jest.mock('node:crypto', () => ({
 }))
 
 process.env.TABLE_NAME = 'test-table'
-process.env.KMS_KEY_ID = 'test-key-id'
 process.env.SECRETS_PREFIX = 'secret-review/'
 process.env.PROJECTS_CONFIG = JSON.stringify({
   'backend-api': ['dev', 'production'],

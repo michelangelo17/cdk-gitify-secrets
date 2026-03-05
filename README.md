@@ -24,9 +24,12 @@ Developer                          AWS Secrets Manager        cdk-gitify-secrets
     |                                     |     compute diff,        |
     |                                     |     store in DynamoDB    |
     |                                     |                          |
-    |         Reviewer opens dashboard, sees key-level diff          |
-    |         (no values shown), clicks "Approve"                    |
+    |  sr review --change-id <id>         |                          |
+    |  (reads staging + live via SDK) --->|                          |
+    |  shows colored value-level diff     |                          |
     |                                     |                          |
+    |  sr approve --change-id <id>        |                          |
+    |  POST /changes/{id}/approve  --------------------------->      |
     |                                     |<--- approve handler ----|
     |                                     |  copies staging -> real   |
     |                                     |  deletes staging secret  |
@@ -36,7 +39,7 @@ Developer                          AWS Secrets Manager        cdk-gitify-secrets
     |<------ .env file written -----------|                          |
 ```
 
-**Key principle: secret values never transit through the custom API.** Both `sr propose` and `sr pull` interact with Secrets Manager directly via the AWS SDK. The API only handles workflow metadata (who proposed what, approvals, rejections).
+**Key principle: secret values never transit through the custom API.** Both `sr propose` and `sr pull` interact with Secrets Manager directly via the AWS SDK. The API only handles workflow metadata (who proposed what, approvals, rejections). `sr review` reads secrets directly via the SDK to show diffs locally.
 
 ## Install
 
@@ -72,13 +75,12 @@ npx cdk deploy
 The output gives you:
 
 - `ApiUrl` -- the API endpoint
-- `FrontendUrl` -- the review dashboard
 - `UserPoolId` / `UserPoolClientId` -- for auth configuration
 - `SecretPrefix` -- for CLI configuration
 
 ### Adding Users
 
-Self-signup is disabled by default -- users must be created by an admin. Use the AWS CLI:
+Self-signup is disabled by default -- users must be created by an admin. The `sr init` wizard can create the first user for you. For additional users, use the AWS CLI:
 
 ```bash
 aws cognito-idp admin-create-user \
@@ -99,10 +101,9 @@ If `requireMfa` is enabled, users will additionally be prompted to set up a TOTP
 | `projects`               | `ProjectConfig[]`         | _required_                          | Projects and their environments                                     |
 | `userPool`               | `cognito.IUserPool`       | auto-created                        | Bring your own Cognito user pool                                    |
 | `userPoolClient`         | `cognito.IUserPoolClient` | auto-created                        | Bring your own client (only used with `userPool`)                   |
-| `deployFrontend`         | `boolean`                 | `true`                              | Deploy the web review dashboard via S3 + CloudFront                 |
-| `allowedOrigins`         | `string[]`                | CloudFront URL (or `["*"]` if frontend disabled) | CORS allowed origins                                     |
 | `preventSelfApproval`    | `boolean`                 | `true`                              | Block self-approval of changes                                      |
 | `enableProjectScoping`   | `boolean`                 | `false`                             | Per-project access control via Cognito groups (see Security Model)  |
+| `enableApproverRole`     | `boolean`                 | `false`                             | Require approver group membership for approve/reject/rollback       |
 | `removalPolicy`          | `RemovalPolicy`           | `RETAIN`                            | Removal policy for stateful resources (DynamoDB, KMS, Secrets)      |
 | `vpc`                    | `ec2.IVpc`                | none                                | Place Lambdas in VPC with PrivateLink endpoints                     |
 | `throttle`               | `ThrottleConfig`          | `{ rateLimit: 10, burstLimit: 20 }` | API Gateway rate limiting                                           |
@@ -136,7 +137,7 @@ When `vpc` is provided, the construct:
 
 ### MFA (Multi-Factor Authentication)
 
-Enable TOTP-based MFA for dashboard and workflow users:
+Enable TOTP-based MFA for workflow users:
 
 ```typescript
 const sr = new SecretReview(this, "SecretReview", {
@@ -153,7 +154,37 @@ When enabled:
 
 This only applies when the construct creates its own user pool. If you bring your own (`userPool` prop), configure MFA on it directly.
 
-**When to enable:** Recommended for environments where dashboard users can approve, reject, or rollback secret changes and an unauthorized approval could have significant operational impact. Even though the API never touches secret values, a compromised Cognito account can approve malicious changes or trigger rollbacks.
+**When to enable:** Recommended for environments where users can approve, reject, or rollback secret changes and an unauthorized approval could have significant operational impact. Even though the API never touches secret values, a compromised Cognito account can approve malicious changes or trigger rollbacks.
+
+### Approver Role
+
+For teams that want to separate who can propose changes from who can approve them:
+
+```typescript
+const sr = new SecretReview(this, "SecretReview", {
+  projects: [
+    { name: "backend-api", environments: ["dev", "production"] },
+  ],
+  enableApproverRole: true,
+})
+```
+
+When enabled:
+
+- A `<project>-approvers` Cognito group is created for each project
+- Only members of the approver group can approve, reject, or rollback changes
+- All authenticated users can still propose changes and view history
+
+This is independent of `enableProjectScoping` -- both can be used together for maximum control.
+
+**Managing approver membership** via the AWS CLI:
+
+```bash
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id <UserPoolId> \
+  --username alice@company.com \
+  --group-name backend-api-approvers
+```
 
 ### Cross-Account Secret Access
 
@@ -171,7 +202,7 @@ This adds:
 - A **resource policy** on each secret allowing `GetSecretValue` and `DescribeSecret` from the listed accounts
 - A **KMS key policy** granting `kms:Decrypt` to each account
 
-The review workflow (API, dashboard, DynamoDB, Cognito) stays entirely in the central account. Consuming accounts only read the final approved secret values. In the consuming account's CDK stack:
+The review workflow (API, DynamoDB, Cognito) stays entirely in the central account. Consuming accounts only read the final approved secret values. In the consuming account's CDK stack:
 
 ```typescript
 import { Secret } from "aws-cdk-lib/aws-secretsmanager"
@@ -220,7 +251,6 @@ sr.grantSecretRead("project", "env", grantee) // Grant read access (secret + KMS
 sr.grantCliPropose(grantee) // Grant CLI propose permissions
 sr.grantCliPull(grantee) // Grant CLI pull-only permissions
 sr.apiUrl // API Gateway URL
-sr.frontendUrl // CloudFront dashboard URL (undefined if frontend disabled)
 sr.userPool // Cognito User Pool
 sr.userPoolClient // Cognito User Pool Client
 sr.encryptionKey // KMS Key
@@ -232,7 +262,7 @@ sr.secretPrefix // Secret name prefix (default: "secret-review/")
 
 The CLI needs IAM credentials (from `~/.aws/credentials`, environment variables, or SSO) to interact with Secrets Manager directly. The construct provides helper methods to grant exactly the right permissions.
 
-### Propose-capable users (`sr propose` + `sr pull`)
+### Propose-capable users (`sr propose` + `sr pull` + `sr review`)
 
 ```typescript
 import { User } from "aws-cdk-lib/aws-iam"
@@ -324,8 +354,9 @@ npx sr init --stack-name MySecretReviewStack
 This single command:
 
 1. Reads API URL, User Pool, Client ID, and Secret Prefix from the CloudFormation stack outputs
-2. Prompts you to log in with your Cognito credentials
-3. Asks for default project and environment, then optionally saves them to a local `.sr.json`
+2. Optionally creates the first Cognito user
+3. Prompts you to log in with your Cognito credentials
+4. Asks for default project and environment, then optionally saves them to a local `.sr.json`
 
 For CI or non-interactive environments, pass all flags to skip prompts:
 
@@ -342,6 +373,8 @@ npx sr propose -r "Add Stripe key"    # override just the reason
 npx sr pull                            # reads .sr.json, writes to .env
 npx sr pull -e staging -o staging.env  # override env and output
 npx sr history                         # reads .sr.json
+npx sr review --change-id <id>        # full value-level diff
+npx sr approve --change-id <id>       # review + approve in one step
 ```
 
 ### Project Defaults (`.sr.json`)
@@ -404,7 +437,7 @@ You can also pass `--password` directly, but be aware this is visible in shell h
 
 Tokens are automatically refreshed when they expire. If refresh fails, run `sr login` again.
 
-### Propose a change
+### Propose a Change
 
 ```bash
 # Zero flags -- uses .sr.json defaults, reads .env, auto-generates reason
@@ -420,11 +453,40 @@ This does two things:
 1. Creates a staging secret in Secrets Manager via the AWS SDK (using your IAM credentials)
 2. Calls the API with metadata only (project, environment, reason, staging secret name -- no values)
 
-### Review and approve
+### Review a Change
 
-Open the `FrontendUrl` in your browser, sign in with your Cognito credentials, and approve the change. The dashboard shows which keys changed (added/modified/removed) but never displays actual secret values.
+```bash
+# Full value-level diff (reads staging + live secrets via AWS SDK)
+npx sr review --change-id <id>
 
-### Pull secrets for local development
+# Include unchanged keys in the output
+npx sr review --change-id <id> --show-all
+
+# Machine-readable output
+npx sr review --change-id <id> --json
+```
+
+The review command reads both the staging and live secrets directly from Secrets Manager using your IAM credentials, then displays a colored diff:
+
+- **Green `+ KEY=value`** -- added
+- **Red `- KEY=value`** -- removed
+- **Yellow `~ KEY: old → new`** -- modified
+
+### Approve or Reject
+
+```bash
+# Approve: shows the full review diff, then asks for confirmation
+npx sr approve --change-id <id>
+npx sr approve --change-id <id> -c "Looks good" -y  # skip confirmation
+
+# Reject: shows change summary, then asks for confirmation
+npx sr reject --change-id <id>
+npx sr reject --change-id <id> -c "Wrong values" -y  # skip confirmation
+```
+
+When approving, the API handler copies values from the staging secret to the production secret, then deletes the staging secret. On rejection, the staging secret is deleted without applying.
+
+### Pull Secrets for Local Development
 
 ```bash
 # Zero flags -- uses .sr.json defaults, writes to .env
@@ -437,23 +499,32 @@ npx sr pull -p backend-api -e dev --keys-only
 
 Pull reads Secrets Manager directly via the AWS SDK (IAM credentials). The custom API is not involved.
 
-### View history
+### View History
 
 ```bash
-# Zero flags -- uses .sr.json defaults
+# Scoped -- uses .sr.json defaults
 npx sr history
 
-# Override project/env
+# Cross-project -- all changes across all projects
+npx sr history --all
+npx sr history --all --status approved --limit 50
+
+# Filter by project (client-side)
+npx sr history -p backend-api --all
+
+# Override project/env for scoped view
 npx sr history -p backend-api -e production
 ```
 
-Displays a table of past changes with change ID, status, proposer, and reason.
-
-### Check status
+### Check Status
 
 ```bash
 # List all pending changes
 npx sr status
+
+# Filter by project/env
+npx sr status -p backend-api
+npx sr status -p backend-api -e production
 
 # Inspect a specific change
 npx sr status --change-id abc-123-def
@@ -463,13 +534,16 @@ npx sr status --change-id abc-123-def
 
 | Command | Description |
 | --- | --- |
-| `npx sr init [--stack-name NAME] [--region REGION] [--email EMAIL] [--password PASS] [--default-project P] [--default-env E] [--skip-login]` | Interactive setup wizard (config + login + defaults) |
-| `npx sr configure [--from-stack NAME] [options]` | Set up API URL, region, Cognito config, project defaults |
-| `npx sr login [--email EMAIL] [--password PASS]` | Authenticate with Cognito |
-| `npx sr propose [-p PROJECT] [-e ENV] [-r "reason"] [-f FILE]` | Propose changes from a .env file |
-| `npx sr pull [-p PROJECT] [-e ENV] [-o FILE] [--keys-only]` | Pull secrets via AWS SDK |
-| `npx sr history [-p PROJECT] [-e ENV]` | View change history |
-| `npx sr status [--change-id ID]` | Check pending changes / inspect a change |
+| `sr init [--stack-name NAME] [--region REGION] [--email EMAIL] [--password PASS] [--default-project P] [--default-env E] [--skip-login]` | Interactive setup wizard |
+| `sr configure [--from-stack NAME] [options]` | Set up API URL, region, Cognito config, project defaults |
+| `sr login [--email EMAIL] [--password PASS]` | Authenticate with Cognito |
+| `sr propose [-p PROJECT] [-e ENV] [-r "reason"] [-f FILE]` | Propose changes from a .env file |
+| `sr pull [-p PROJECT] [-e ENV] [-o FILE] [--keys-only]` | Pull secrets via AWS SDK |
+| `sr review --change-id ID [--show-all] [--json]` | Review a change with full value-level diff |
+| `sr approve --change-id ID [-c COMMENT] [-y] [--skip-review]` | Approve a pending change |
+| `sr reject --change-id ID [-c COMMENT] [-y]` | Reject a pending change |
+| `sr history [-p PROJECT] [-e ENV] [--all] [--status S] [--limit N]` | View change history |
+| `sr status [--change-id ID] [-p PROJECT] [-e ENV]` | Check pending changes / inspect a change |
 
 ## Security Model
 
@@ -478,8 +552,8 @@ npx sr status --change-id abc-123-def
 This is the core design principle. The API Gateway + Lambda handlers handle **only workflow metadata**: who proposed a change, which keys changed, approval status, reviewer comments.
 
 - **`sr propose`** creates a staging secret directly in Secrets Manager via the AWS SDK (using the developer's IAM credentials). Then it calls the API with only the staging secret name, project, env, and reason -- no values in the HTTP request.
+- **`sr review`** reads both the staging and live secrets directly from Secrets Manager via the AWS SDK (using your IAM credentials). The diff is computed and displayed locally in your terminal. The custom API is only used to fetch change metadata (status, proposer, reason).
 - **`sr pull`** reads Secrets Manager directly via the AWS SDK. The custom API is not involved at all.
-- **The dashboard** shows key names and change types (added/modified/removed) only. There is no reveal button, no partial values, no masked values. Reviewing actual values requires IAM access to Secrets Manager (AWS Console or CLI).
 - **The diff Lambda** only reads DynamoDB metadata. It has no `secretsmanager:GetSecretValue` permission.
 
 ### Where secret values live
@@ -526,12 +600,16 @@ aws cognito-idp admin-list-groups-for-user \
   --username alice@company.com
 ```
 
+### Approver role (optional)
+
+When `enableApproverRole` is true, approve/reject/rollback operations require membership in the `<project>-approvers` Cognito group. All authenticated users can still propose changes and view history. See the [Approver Role](#approver-role) section for setup details.
+
 ### Dual authentication model
 
 The CLI uses two different auth mechanisms:
 
-- **Cognito JWT** (for workflow): `sr propose` (metadata only), `sr history`, `sr status` go through the API Gateway, authenticated via Cognito JWT.
-- **IAM credentials** (for secret values): `sr propose` (staging secret creation) and `sr pull` interact with Secrets Manager directly using the developer's IAM credentials from `~/.aws/credentials`, env vars, or SSO.
+- **Cognito JWT** (for workflow): `sr propose` (metadata only), `sr approve`, `sr reject`, `sr history`, `sr status` go through the API Gateway, authenticated via Cognito JWT.
+- **IAM credentials** (for secret values): `sr propose` (staging secret creation), `sr review` (reading secrets for diff), and `sr pull` interact with Secrets Manager directly using the developer's IAM credentials from `~/.aws/credentials`, env vars, or SSO.
 
 This means even if a Cognito account is compromised, the attacker cannot read or write secret values without also having valid IAM credentials with the right Secrets Manager permissions.
 
@@ -558,7 +636,7 @@ const sr = new SecretReview(this, "SecretReview", {
 
 ### CORS
 
-When the frontend dashboard is deployed (default), CORS is automatically scoped to the CloudFront distribution URL. When the frontend is disabled, or if you provide a custom `allowedOrigins` prop, those values are used instead. This prevents third-party websites from making authenticated requests to your API.
+CORS is set to allow all origins (`*`). Since the API is authenticated via Cognito JWT tokens and never handles secret values, this is safe. The JWT token in the `Authorization` header provides the actual access control.
 
 ### CLI credential safety
 
@@ -574,8 +652,9 @@ The cleanup Lambda requires `secretsmanager:ListSecrets` with `Resource: "*"` --
 
 - **KMS encryption** with key rotation enabled by default
 - **Self-approval prevention** -- can't approve your own changes (configurable via `preventSelfApproval`)
-- **Cognito authentication** for the API and dashboard (self-signup disabled by default)
+- **Cognito authentication** for the API (self-signup disabled by default)
 - **Optional TOTP MFA** for Cognito users via `requireMfa` prop
+- **Optional approver role** for separating proposer and approver permissions
 - **CloudTrail auditing** -- every Secrets Manager access is logged
 - **Scoped IAM** -- each Lambda handler gets only the permissions it needs (e.g., the list, diff, and history Lambdas have zero Secrets Manager access)
 - **Orphan cleanup** -- a daily scheduled Lambda deletes stale staging secrets
@@ -587,7 +666,7 @@ The cleanup Lambda requires `secretsmanager:ListSecrets` with `Resource: "*"` --
 These are conscious design trade-offs, not bugs:
 
 - **No per-project RBAC by default** -- without `enableProjectScoping`, all authenticated users can see and act on all projects. Enable project scoping for team isolation.
-- **Rollback is available to all authenticated users** -- there is no separate "admin" role for rollback. Any authenticated user (or any user in the project group, if scoping is enabled) can roll back an approved change.
+- **Rollback is available to all authenticated users** -- unless `enableApproverRole` is enabled, there is no separate role for rollback. Any authenticated user (or any user in the project group, if scoping is enabled) can roll back an approved change.
 - **CLI password masking is best-effort** -- Node.js does not provide a built-in way to suppress terminal echo. The password prompt shows `*` characters but the underlying terminal may briefly display real characters depending on platform and timing. This is cosmetic; passwords are never logged or stored insecurely.
 - **`--password` flag is visible in shell history** -- use the `SR_PASSWORD` environment variable or the interactive prompt instead.
 
@@ -635,20 +714,19 @@ Values are resolved at runtime -- they never appear in CloudFormation templates 
 |  only        |     |  + throttling    |     |  metadata only   |
 +------+-------+     +------------------+     +--------+--------+
        |                                               |
-       | (propose + pull:                      +-------+--------+
-       |  direct AWS SDK)                      |  DynamoDB      |
-       |                                       |  (metadata)    |
-       v                                       +----------------+
-+--------------+     +------------------+
-|  Secrets     |     |  Frontend        |
-|  Manager     |     |  S3 + CloudFront |
-|  + KMS       |     |  (key names only)|
-+--------------+     +------------------+
+       | (propose + pull + review:              +------+--------+
+       |  direct AWS SDK)                       |  DynamoDB     |
+       |                                        |  (metadata)   |
+       v                                        +---------------+
++--------------+
+|  Secrets     |
+|  Manager     |
+|  + KMS       |
++--------------+
 ```
 
 ## Future Work
 
-- **Frontend framework migration**: The current dashboard is a single HTML file. As features grow, it may be migrated to a lightweight framework (e.g., Preact or Svelte) for better maintainability. The current SPA approach works well for the current feature set.
 - **Slack / Teams notifications**: A future release will add webhook notifications on propose/approve/reject events, with the webhook URL stored in Secrets Manager (not as a Lambda env var) and scoped to only the Lambdas that send notifications.
 
 ## License

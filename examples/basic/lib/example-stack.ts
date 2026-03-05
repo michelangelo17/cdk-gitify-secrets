@@ -14,12 +14,11 @@ export class ExampleStack extends cdk.Stack {
         { name: 'payment-service', environments: ['dev', 'production'] },
       ],
       preventSelfApproval: true,
-      deployFrontend: true,
     })
 
     // Example: a Lambda that needs access to backend-api production secrets
     const myFunction = new lambda.Function(this, 'MyFunction', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'index.handler',
       code: lambda.Code.fromInline('exports.handler = async () => "hello";'),
       environment: {

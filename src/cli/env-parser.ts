@@ -41,7 +41,7 @@ export const writeEnvFile = (
   for (const key of Object.keys(variables).sort()) {
     let value = variables[key]
     if (/[\s"'#]/.test(value)) {
-      value = `"${value}"`
+      value = `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
     }
     lines.push(`${key}=${value}`)
   }

@@ -1,10 +1,8 @@
 import * as path from 'node:path'
-import { Annotations, Duration, Lazy, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
+import { Annotations, Duration, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
-import * as cloudfront from 'aws-cdk-lib/aws-cloudfront'
-import * as cloudfrontOrigins from 'aws-cdk-lib/aws-cloudfront-origins'
 import * as cognito from 'aws-cdk-lib/aws-cognito'
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb'
 import * as ec2 from 'aws-cdk-lib/aws-ec2'
@@ -13,8 +11,6 @@ import * as eventsTargets from 'aws-cdk-lib/aws-events-targets'
 import * as iam from 'aws-cdk-lib/aws-iam'
 import * as kms from 'aws-cdk-lib/aws-kms'
 import * as lambda from 'aws-cdk-lib/aws-lambda'
-import * as s3 from 'aws-cdk-lib/aws-s3'
-import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment'
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import { Construct } from 'constructs'
 
@@ -73,20 +69,6 @@ export interface SecretReviewProps {
    * @default - a new client is created
    */
   readonly userPoolClient?: cognito.IUserPoolClient
-
-  /**
-   * Deploy the web review dashboard via S3 + CloudFront.
-   *
-   * @default true
-   */
-  readonly deployFrontend?: boolean
-
-  /**
-   * Allowed CORS origins.
-   *
-   * @default - CloudFront URL only (or ["*"] if frontend is disabled)
-   */
-  readonly allowedOrigins?: string[]
 
   /**
    * Block self-approval of changes.
@@ -174,11 +156,31 @@ export interface SecretReviewProps {
    * @default false
    */
   readonly enableProjectScoping?: boolean
+
+  /**
+   * Enable a separate approver role using Cognito user groups.
+   *
+   * When enabled, a `<project>-approvers` Cognito group is created for each project.
+   * Only members of the approver group can approve, reject, or rollback changes.
+   * All authenticated users can still propose changes and view history.
+   *
+   * This is independent of `enableProjectScoping` -- both can be used together.
+   *
+   * Manage approver membership via the AWS CLI:
+   * ```
+   * aws cognito-idp admin-add-user-to-group \
+   *   --user-pool-id <UserPoolId> --username alice@company.com --group-name backend-api-approvers
+   * ```
+   *
+   * @default false
+   */
+  readonly enableApproverRole?: boolean
 }
 
 /**
  * A CDK construct that deploys a GitOps-style secret management workflow
- * built on AWS Secrets Manager, with review/approval, audit trail, and a web dashboard.
+ * built on AWS Secrets Manager, with review/approval and audit trail.
+ * All operations are performed via the `sr` CLI.
  *
  * DynamoDB stores only metadata (who, when, status, key names).
  * All secret values live exclusively in Secrets Manager, encrypted with a custom KMS key.
@@ -213,11 +215,6 @@ export class SecretReview extends Construct {
    * The DynamoDB table for change request metadata.
    */
   public readonly table: dynamodb.ITable
-
-  /**
-   * The CloudFront URL for the review dashboard. Undefined if frontend is disabled.
-   */
-  public readonly frontendUrl: string | undefined
 
   /**
    * The secret name prefix used for Secrets Manager naming.
@@ -398,10 +395,27 @@ export class SecretReview extends Construct {
       }
     }
 
+    // ─── Approver Role (optional Cognito groups) ──────────────
+    if (props.enableApproverRole) {
+      if (props.userPool) {
+        Annotations.of(this).addWarningV2(
+          'SecretReview:BYOPoolApprover',
+          'enableApproverRole with a BYO user pool: groups are created but ' +
+            'you must ensure the pool includes cognito:groups in the ID token claims.',
+        )
+      }
+      for (const project of props.projects) {
+        new cognito.CfnUserPoolGroup(this, `ApproverGroup-${project.name}`, {
+          userPoolId: userPool.userPoolId,
+          groupName: `${project.name}-approvers`,
+          description: `Approver access for ${project.name} secrets`,
+        })
+      }
+    }
+
     // ─── Shared Lambda environment ─────────────────────────────
     const sharedEnv: Record<string, string> = {
       TABLE_NAME: changeRequestsTable.tableName,
-      KMS_KEY_ID: encryptionKey.keyId,
       SECRETS_PREFIX: this.secretPrefix,
       PROJECTS_CONFIG: JSON.stringify(projectsConfigMap),
       PREVENT_SELF_APPROVAL: String(props.preventSelfApproval ?? true),
@@ -409,6 +423,10 @@ export class SecretReview extends Construct {
 
     if (props.enableProjectScoping) {
       sharedEnv.ENABLE_PROJECT_SCOPING = 'true'
+    }
+
+    if (props.enableApproverRole) {
+      sharedEnv.ENABLE_APPROVER_ROLE = 'true'
     }
 
     // ─── VPC Configuration (optional) ────────────────────────────
@@ -588,16 +606,7 @@ export class SecretReview extends Construct {
 
     const throttle = props.throttle ?? { rateLimit: 10, burstLimit: 20 }
 
-    let corsOrigins: string[] | undefined
-    const httpApi = new apigatewayv2.HttpApi(this, 'Api', {
-      corsPreflight: {
-        allowOrigins: props.allowedOrigins ?? Lazy.list({
-          produce: () => corsOrigins ?? ['*'],
-        }),
-        allowMethods: [apigatewayv2.CorsHttpMethod.ANY],
-        allowHeaders: ['Content-Type', 'Authorization'],
-      },
-    })
+    const httpApi = new apigatewayv2.HttpApi(this, 'Api')
 
     // Apply throttling to the default stage
     const defaultStage = httpApi.defaultStage?.node
@@ -646,60 +655,6 @@ export class SecretReview extends Construct {
       schedule: events.Schedule.rate(Duration.days(1)),
       targets: [new eventsTargets.LambdaFunction(cleanupFn)],
     })
-
-    // ─── Frontend Hosting (optional) ───────────────────────────
-    const deployFrontend = props.deployFrontend ?? true
-
-    if (deployFrontend) {
-      const frontendBucket = new s3.Bucket(this, 'FrontendBucket', {
-        blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-        removalPolicy: RemovalPolicy.DESTROY,
-        autoDeleteObjects: true,
-      })
-
-      const distribution = new cloudfront.Distribution(this, 'FrontendDist', {
-        defaultBehavior: {
-          origin:
-            cloudfrontOrigins.S3BucketOrigin.withOriginAccessControl(
-              frontendBucket,
-            ),
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        },
-        defaultRootObject: 'index.html',
-        errorResponses: [
-          {
-            httpStatus: 404,
-            responseHttpStatus: 200,
-            responsePagePath: '/index.html',
-          },
-        ],
-      })
-
-      new s3deploy.BucketDeployment(this, 'DeployFrontend', {
-        sources: [
-          s3deploy.Source.asset(path.join(__dirname, '..', 'src', 'frontend')),
-          s3deploy.Source.jsonData('config.json', {
-            apiUrl: httpApi.url,
-            userPoolId: userPool.userPoolId,
-            clientId: userPoolClient.userPoolClientId,
-            region: stack.region,
-            projects: projectsConfigMap,
-          }),
-        ],
-        destinationBucket: frontendBucket,
-        distribution,
-        distributionPaths: ['/*'],
-      })
-
-      this.frontendUrl = `https://${distribution.distributionDomainName}`
-
-      if (!props.allowedOrigins) {
-        corsOrigins = [this.frontendUrl]
-      }
-
-      new CfnOutput(this, 'FrontendUrl', { value: this.frontendUrl })
-    }
 
     // ─── Outputs ───────────────────────────────────────────────
     new CfnOutput(this, 'ApiUrl', { value: this.apiUrl })

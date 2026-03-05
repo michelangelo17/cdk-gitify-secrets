@@ -2,8 +2,9 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { assertProjectAccess, getUserEmail } from './shared/auth'
+import { assertApproverAccess, assertProjectAccess, getUserEmail } from './shared/auth'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
+import { parseBody } from './shared/request'
 import { ok, error } from './shared/response'
 import { deleteStagingSecret } from './shared/secrets'
 import type { ApproveRejectBody } from './shared/types'
@@ -17,7 +18,9 @@ export const handler = async (
       return error(400, 'Missing changeId')
     }
 
-    const body: ApproveRejectBody = JSON.parse(event.body ?? '{}')
+    const parsed = parseBody<ApproveRejectBody>(event)
+    if (!parsed.ok) return parsed.error
+    const { body } = parsed
     const reviewerEmail = getUserEmail(event)
 
     const change = await getChangeById(changeId)
@@ -32,7 +35,8 @@ export const handler = async (
     const accessError = assertProjectAccess(event, change.project)
     if (accessError) return error(403, accessError)
 
-    await deleteStagingSecret(changeId)
+    const approverError = assertApproverAccess(event, change.project)
+    if (approverError) return error(403, approverError)
 
     try {
       await updateChangeStatus(
@@ -52,6 +56,8 @@ export const handler = async (
       }
       throw e
     }
+
+    await deleteStagingSecret(changeId)
 
     return ok({
       message: `Change ${changeId} rejected`,

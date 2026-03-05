@@ -3,8 +3,9 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { assertProjectAccess, getUserEmail } from './shared/auth'
+import { assertApproverAccess, assertProjectAccess, getUserEmail } from './shared/auth'
 import { getChangeById, buildPk, buildSk, putChange } from './shared/dynamo'
+import { parseBody } from './shared/request'
 import { ok, error } from './shared/response'
 import { getSecretByVersionStage, putSecretValue } from './shared/secrets'
 import type { ChangeRequest, RollbackBody } from './shared/types'
@@ -13,7 +14,9 @@ export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const body: RollbackBody = JSON.parse(event.body ?? '{}')
+    const parsed = parseBody<RollbackBody>(event)
+    if (!parsed.ok) return parsed.error
+    const { body } = parsed
 
     if (!body.changeId || !body.reason) {
       return error(400, 'Missing required fields: changeId, reason')
@@ -32,6 +35,9 @@ export const handler = async (
 
     const accessError = assertProjectAccess(event, targetChange.project)
     if (accessError) return error(403, accessError)
+
+    const approverError = assertApproverAccess(event, targetChange.project)
+    if (approverError) return error(403, approverError)
 
     const rollbackValues = await getSecretByVersionStage(
       targetChange.project,

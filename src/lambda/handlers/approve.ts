@@ -2,9 +2,10 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { assertProjectAccess, getUserEmail } from './shared/auth'
+import { assertApproverAccess, assertProjectAccess, getUserEmail } from './shared/auth'
 import { config } from './shared/config'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
+import { parseBody } from './shared/request'
 import { ok, error } from './shared/response'
 import {
   getCurrentSecretValue,
@@ -23,7 +24,9 @@ export const handler = async (
       return error(400, 'Missing changeId')
     }
 
-    const body: ApproveRejectBody = JSON.parse(event.body ?? '{}')
+    const parsed = parseBody<ApproveRejectBody>(event)
+    if (!parsed.ok) return parsed.error
+    const { body } = parsed
     const reviewerEmail = getUserEmail(event)
 
     const change = await getChangeById(changeId)
@@ -38,21 +41,23 @@ export const handler = async (
     const accessError = assertProjectAccess(event, change.project)
     if (accessError) return error(403, accessError)
 
+    const approverError = assertApproverAccess(event, change.project)
+    if (approverError) return error(403, approverError)
+
     if (config.preventSelfApproval && change.proposedBy === reviewerEmail) {
       return error(403, 'Cannot approve your own changes')
     }
 
-    if (change.secretVersionId) {
-      const { versionId: currentVersionId } = await getCurrentSecretValue(
-        change.project,
-        change.env,
+    const { versionId: previousVersionId } = await getCurrentSecretValue(
+      change.project,
+      change.env,
+    )
+
+    if (change.secretVersionId && previousVersionId && previousVersionId !== change.secretVersionId) {
+      return error(
+        409,
+        'Conflict: the secret was modified since this change was proposed. Please reject and re-propose.',
       )
-      if (currentVersionId && currentVersionId !== change.secretVersionId) {
-        return error(
-          409,
-          'Conflict: the secret was modified since this change was proposed. Please reject and re-propose.',
-        )
-      }
     }
 
     const stagingData = await getStagingSecretValue(changeId)
@@ -62,11 +67,6 @@ export const handler = async (
         'Staging secret not found. The change may have expired.',
       )
     }
-
-    const { versionId: previousVersionId } = await getCurrentSecretValue(
-      change.project,
-      change.env,
-    )
 
     await putSecretValue(change.project, change.env, stagingData.proposed)
     await deleteStagingSecret(changeId)

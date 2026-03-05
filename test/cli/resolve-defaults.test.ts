@@ -77,41 +77,19 @@ describe('resolveProjectEnv', () => {
     expect(result).toEqual({ project: 'flag-proj', env: 'local-env' })
   })
 
-  test('exits with helpful message when nothing configured', () => {
-    const mockExit = jest.spyOn(process, 'exit').mockImplementation(
-      (() => { throw new Error('process.exit') }) as never,
+  test('throws with helpful message when nothing configured', () => {
+    expect(() => resolveProjectEnv({}, {}, tmpDir)).toThrow(
+      /Missing project and env/,
     )
-    const mockError = jest.spyOn(console, 'error').mockImplementation(() => {})
-
-    expect(() => resolveProjectEnv({}, {}, tmpDir)).toThrow('process.exit')
-
-    expect(mockError).toHaveBeenCalledWith(
-      expect.stringContaining('Missing project and env'),
+    expect(() => resolveProjectEnv({}, {}, tmpDir)).toThrow(
+      /\.sr\.json/,
     )
-    expect(mockError).toHaveBeenCalledWith(
-      expect.stringContaining('.sr.json'),
-    )
-
-    mockExit.mockRestore()
-    mockError.mockRestore()
   })
 
-  test('exits when only project is missing', () => {
-    const mockExit = jest.spyOn(process, 'exit').mockImplementation(
-      (() => { throw new Error('process.exit') }) as never,
-    )
-    const mockError = jest.spyOn(console, 'error').mockImplementation(() => {})
-
+  test('throws when only project is missing', () => {
     expect(() =>
       resolveProjectEnv({ env: 'dev' }, {}, tmpDir),
-    ).toThrow('process.exit')
-
-    expect(mockError).toHaveBeenCalledWith(
-      expect.stringContaining('Missing project'),
-    )
-
-    mockExit.mockRestore()
-    mockError.mockRestore()
+    ).toThrow(/Missing project/)
   })
 })
 

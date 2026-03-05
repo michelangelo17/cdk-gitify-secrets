@@ -38,3 +38,19 @@ export const assertProjectAccess = (
   }
   return undefined
 }
+
+/**
+ * Returns an error message if the caller is not in the project's approver group,
+ * or undefined if the feature is disabled or the caller has access.
+ */
+export const assertApproverAccess = (
+  event: APIGatewayProxyEventV2WithJWTAuthorizer,
+  project: string,
+): string | undefined => {
+  if (!config.enableApproverRole) return undefined
+  const groups = getUserGroups(event)
+  if (!groups.includes(`${project}-approvers`)) {
+    return `Access denied: you are not a member of the '${project}-approvers' group`
+  }
+  return undefined
+}

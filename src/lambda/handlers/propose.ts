@@ -5,6 +5,7 @@ import type {
 import { assertProjectAccess, getUserEmail } from './shared/auth'
 import { config } from './shared/config'
 import { buildPk, buildSk, putChange } from './shared/dynamo'
+import { parseBody } from './shared/request'
 import { ok, error } from './shared/response'
 import { getCurrentSecretValue, getStagingSecretValue } from './shared/secrets'
 import type {
@@ -40,7 +41,9 @@ export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
-    const body: ProposeRequestBody = JSON.parse(event.body ?? '{}')
+    const parsed = parseBody<ProposeRequestBody>(event)
+    if (!parsed.ok) return parsed.error
+    const { body } = parsed
 
     if (!body.project || !body.env || !body.stagingSecretName || !body.reason) {
       return error(

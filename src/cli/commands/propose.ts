@@ -1,15 +1,16 @@
 import { randomUUID } from 'node:crypto'
 import * as fs from 'node:fs'
 import {
-  SecretsManagerClient,
   CreateSecretCommand,
   GetSecretValueCommand,
   TagResourceCommand,
   ResourceNotFoundException,
 } from '@aws-sdk/client-secrets-manager'
 import { Command } from 'commander'
-import { requireConfig, apiRequest, awsCredentials } from '../auth'
+import { requireConfig, apiRequest } from '../auth'
+import { createSmClient, resolveSecretPrefix } from '../aws'
 import { formatDiffSymbol, parseEnvFile } from '../env-parser'
+import { CliError } from '../errors'
 import { resolveProjectEnv } from '../resolve-defaults'
 
 export const registerProposeCommand = (program: Command): void => {
@@ -26,19 +27,16 @@ export const registerProposeCommand = (program: Command): void => {
       const reason = opts.reason ?? `Update ${project}/${env}`
 
       if (!fs.existsSync(opts.file)) {
-        console.error(`File not found: ${opts.file}`)
-        process.exit(1)
+        throw new CliError(`File not found: ${opts.file}`)
       }
 
       const variables = parseEnvFile(opts.file)
 
       if (Object.keys(variables).length === 0) {
-        console.error('No variables found in the file.')
-        process.exit(1)
+        throw new CliError('No variables found in the file.')
       }
 
-      const region = config.region!
-      const prefix = config.secretPrefix || 'secret-review/'
+      const prefix = resolveSecretPrefix(config)
       const realSecretName = `${prefix}${project}/${env}`
 
       console.log(
@@ -49,11 +47,7 @@ export const registerProposeCommand = (program: Command): void => {
         '  Using AWS SDK to create staging secret (IAM credentials)\n',
       )
 
-      const credentials = awsCredentials()
-      const smClient = new SecretsManagerClient({
-        region,
-        ...(credentials ? { credentials } : {}),
-      })
+      const smClient = createSmClient(config)
 
       let currentValues: Record<string, string> = {}
       try {
@@ -120,12 +114,11 @@ export const registerProposeCommand = (program: Command): void => {
           }
           console.log()
         }
-        console.log('  Waiting for approval in the review dashboard.')
+        console.log('  Run: sr review --change-id ' + String(data.changeId))
       } else if (data.message === 'No changes detected') {
         console.log('\n  No changes detected. Everything is up to date.')
       } else {
-        console.error(data.error || 'Unknown error')
-        process.exit(1)
+        throw new CliError(String(data.error || 'Unknown error'))
       }
     })
 }

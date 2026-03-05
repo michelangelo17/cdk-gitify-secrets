@@ -17,18 +17,6 @@ jest.mock('@aws-sdk/client-secrets-manager', () => ({
     _type: 'DeleteSecret',
     _input: input,
   })),
-  CreateSecretCommand: jest.fn((input: unknown) => ({
-    _type: 'CreateSecret',
-    _input: input,
-  })),
-  ListSecretsCommand: jest.fn((input: unknown) => ({
-    _type: 'ListSecrets',
-    _input: input,
-  })),
-  TagResourceCommand: jest.fn((input: unknown) => ({
-    _type: 'TagResource',
-    _input: input,
-  })),
   ResourceNotFoundException: class ResourceNotFoundException extends Error {
     name = 'ResourceNotFoundException'
   },
@@ -59,13 +47,13 @@ jest.mock('node:crypto', () => ({
 }))
 
 process.env.TABLE_NAME = 'test-table'
+
 process.env.SECRETS_PREFIX = 'secret-review/'
 process.env.PROJECTS_CONFIG = JSON.stringify({
   'backend-api': ['dev', 'production'],
-  'frontend': ['dev', 'production'],
 })
 process.env.PREVENT_SELF_APPROVAL = 'true'
-process.env.ENABLE_PROJECT_SCOPING = 'true'
+process.env.ENABLE_APPROVER_ROLE = 'true'
 
 import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
@@ -91,18 +79,18 @@ const PENDING_CHANGE = {
 }
 
 function makeEvent(
-  overrides: Record<string, unknown> = {},
-  groups: string[] = ['backend-api'],
+  groups: string[],
+  email = 'reviewer@test.com',
 ): APIGatewayProxyEventV2WithJWTAuthorizer {
   return {
-    body: JSON.stringify({ comment: 'Looks good' }),
+    body: JSON.stringify({ comment: 'LGTM' }),
     pathParameters: { changeId: 'change-123' },
     queryStringParameters: {},
     requestContext: {
       authorizer: {
         jwt: {
           claims: {
-            'email': 'reviewer@test.com',
+            'email': email,
             'sub': 'user-456',
             'cognito:groups': groups,
           },
@@ -110,11 +98,10 @@ function makeEvent(
         },
       },
     } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer['requestContext'],
-    ...overrides,
   } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer
 }
 
-describe('Project scoping', () => {
+describe('Approver role', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
@@ -128,7 +115,7 @@ describe('Project scoping', () => {
       })
     })
 
-    test('allows access when user is in project group', async () => {
+    test('allows user in approver group', async () => {
       mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
         if (cmd._type === 'Query') return { Items: [PENDING_CHANGE] }
         return {}
@@ -156,22 +143,22 @@ describe('Project scoping', () => {
         },
       )
 
-      const event = makeEvent({}, ['backend-api'])
+      const event = makeEvent(['backend-api-approvers'])
       const result = (await handler(event)) as Result
       expect(result.statusCode).toBe(200)
     })
 
-    test('denies access when user is not in project group', async () => {
+    test('denies user NOT in approver group', async () => {
       mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
         if (cmd._type === 'Query') return { Items: [PENDING_CHANGE] }
         return {}
       })
 
-      const event = makeEvent({}, ['frontend'])
+      const event = makeEvent(['backend-api'])
       const result = (await handler(event)) as Result
       expect(result.statusCode).toBe(403)
       expect(JSON.parse(result.body as string).error).toContain(
-        'Access denied',
+        'backend-api-approvers',
       )
     })
   })
@@ -185,145 +172,56 @@ describe('Project scoping', () => {
       })
     })
 
-    test('denies access when user is not in project group', async () => {
+    test('allows user in approver group', async () => {
       mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
         if (cmd._type === 'Query') return { Items: [PENDING_CHANGE] }
         return {}
       })
+      mockSecretsManagerSend.mockResolvedValue({})
 
-      const event = makeEvent({}, ['frontend'])
-      const result = (await handler(event)) as Result
-      expect(result.statusCode).toBe(403)
-    })
-  })
-
-  describe('diff handler', () => {
-    let handler: typeof import('../../src/lambda/handlers/diff').handler
-
-    beforeEach(() => {
-      jest.isolateModules(() => {
-        handler = require('../../src/lambda/handlers/diff').handler
-      })
-    })
-
-    test('denies access when user is not in project group', async () => {
-      mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
-        if (cmd._type === 'Query') return { Items: [PENDING_CHANGE] }
-        return {}
-      })
-
-      const event = makeEvent({}, ['frontend'])
-      const result = (await handler(event)) as Result
-      expect(result.statusCode).toBe(403)
-    })
-
-    test('allows access when user is in project group', async () => {
-      mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
-        if (cmd._type === 'Query') return { Items: [PENDING_CHANGE] }
-        return {}
-      })
-
-      const event = makeEvent({}, ['backend-api'])
+      const event = makeEvent(['backend-api-approvers'])
       const result = (await handler(event)) as Result
       expect(result.statusCode).toBe(200)
     })
-  })
 
-  describe('history handler', () => {
-    let handler: typeof import('../../src/lambda/handlers/history').handler
-
-    beforeEach(() => {
-      jest.isolateModules(() => {
-        handler = require('../../src/lambda/handlers/history').handler
+    test('denies user NOT in approver group', async () => {
+      mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
+        if (cmd._type === 'Query') return { Items: [PENDING_CHANGE] }
+        return {}
       })
-    })
 
-    test('denies access when user is not in project group', async () => {
-      const event = makeEvent(
-        {
-          pathParameters: { project: 'backend-api', env: 'production' },
-        },
-        ['frontend'],
-      )
+      const event = makeEvent(['backend-api'])
       const result = (await handler(event)) as Result
       expect(result.statusCode).toBe(403)
     })
-
-    test('validates project/env against PROJECTS_CONFIG', async () => {
-      const event = makeEvent(
-        {
-          pathParameters: { project: 'nonexistent', env: 'dev' },
-        },
-        ['nonexistent'],
-      )
-      const result = (await handler(event)) as Result
-      expect(result.statusCode).toBe(400)
-      expect(JSON.parse(result.body as string).error).toContain(
-        'Invalid project/environment',
-      )
-    })
   })
 
-  describe('list-changes handler', () => {
-    let handler: typeof import('../../src/lambda/handlers/list-changes').handler
+  describe('rollback handler', () => {
+    let handler: typeof import('../../src/lambda/handlers/rollback').handler
 
     beforeEach(() => {
       jest.isolateModules(() => {
-        handler = require('../../src/lambda/handlers/list-changes').handler
+        handler = require('../../src/lambda/handlers/rollback').handler
       })
     })
 
-    test('filters changes by project group membership', async () => {
-      const backendChange = {
-        ...PENDING_CHANGE,
-        changeId: 'change-1',
-        project: 'backend-api',
-      }
-      const frontendChange = {
-        ...PENDING_CHANGE,
-        changeId: 'change-2',
-        project: 'frontend',
-      }
-
-      mockDynamoSend.mockImplementation(() => ({
-        Items: [backendChange, frontendChange],
-      }))
-
-      const event = makeEvent(
-        {
-          pathParameters: {},
-          queryStringParameters: { status: 'pending' },
-        },
-        ['backend-api'],
-      )
-
-      const result = (await handler(event)) as Result
-      const body = JSON.parse(result.body as string)
-      expect(body.changes).toHaveLength(1)
-      expect(body.changes[0].project).toBe('backend-api')
-    })
-  })
-
-  describe('getUserGroups parsing', () => {
-    test('handles array groups claim', () => {
-      const { getUserGroups } =
-        require('../../src/lambda/handlers/shared/auth') as typeof import('../../src/lambda/handlers/shared/auth')
-
-      const event = makeEvent({}, ['backend-api', 'frontend'])
-      const groups = getUserGroups(event)
-      expect(groups).toEqual(['backend-api', 'frontend'])
-    })
-
-    test('handles JSON string groups claim', () => {
-      const { getUserGroups } =
-        require('../../src/lambda/handlers/shared/auth') as typeof import('../../src/lambda/handlers/shared/auth')
+    test('denies user NOT in approver group', async () => {
+      const approvedChange = { ...PENDING_CHANGE, status: 'approved' }
+      mockDynamoSend.mockImplementation((cmd: { _type: string }) => {
+        if (cmd._type === 'Query') return { Items: [approvedChange] }
+        return {}
+      })
 
       const event = {
+        body: JSON.stringify({ changeId: 'change-123', reason: 'Revert' }),
+        queryStringParameters: {},
         requestContext: {
           authorizer: {
             jwt: {
               claims: {
-                'cognito:groups': '["backend-api","frontend"]',
+                'email': 'reviewer@test.com',
+                'sub': 'user-456',
+                'cognito:groups': ['backend-api'],
               },
               scopes: [],
             },
@@ -331,27 +229,30 @@ describe('Project scoping', () => {
         },
       } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer
 
-      const groups = getUserGroups(event)
-      expect(groups).toEqual(['backend-api', 'frontend'])
+      const result = (await handler(event)) as Result
+      expect(result.statusCode).toBe(403)
+      expect(JSON.parse(result.body as string).error).toContain(
+        'backend-api-approvers',
+      )
     })
+  })
 
-    test('handles missing groups claim', () => {
-      const { getUserGroups } =
-        require('../../src/lambda/handlers/shared/auth') as typeof import('../../src/lambda/handlers/shared/auth')
+  describe('assertApproverAccess', () => {
+    test('returns undefined when feature is disabled', () => {
+      const savedVal = process.env.ENABLE_APPROVER_ROLE
+      delete process.env.ENABLE_APPROVER_ROLE
 
-      const event = {
-        requestContext: {
-          authorizer: {
-            jwt: {
-              claims: { email: 'test@test.com' },
-              scopes: [],
-            },
-          },
-        },
-      } as unknown as APIGatewayProxyEventV2WithJWTAuthorizer
+      let assertApproverAccess: typeof import('../../src/lambda/handlers/shared/auth').assertApproverAccess
+      jest.isolateModules(() => {
+        assertApproverAccess = require('../../src/lambda/handlers/shared/auth').assertApproverAccess
+      })
 
-      const groups = getUserGroups(event)
-      expect(groups).toEqual([])
+      const event = makeEvent([])
+      const result = assertApproverAccess!(event, 'backend-api')
+      expect(result).toBeUndefined()
+
+      if (savedVal !== undefined) process.env.ENABLE_APPROVER_ROLE = savedVal
+      else process.env.ENABLE_APPROVER_ROLE = 'true'
     })
   })
 })

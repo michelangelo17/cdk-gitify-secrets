@@ -5,41 +5,23 @@ import type {
 import { getUserGroups } from './shared/auth'
 import { config } from './shared/config'
 import { queryChangesByStatus } from './shared/dynamo'
+import { encodeNextToken, parsePaginationParams } from './shared/request'
 import { ok, error } from './shared/response'
-
-const DEFAULT_LIMIT = 50
-const MAX_LIMIT = 100
 
 export const handler = async (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): Promise<APIGatewayProxyResultV2> => {
   try {
     const statusFilter = event.queryStringParameters?.status
-    const limitParam = event.queryStringParameters?.limit
-    const nextTokenParam = event.queryStringParameters?.nextToken
+    const pagination = parsePaginationParams(event)
+    if (pagination.parseError) return pagination.parseError
+    const { limit, exclusiveStartKey } = pagination
 
-    let limit = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT
-    if (isNaN(limit) || limit < 1) limit = DEFAULT_LIMIT
-    if (limit > MAX_LIMIT) limit = MAX_LIMIT
-
-    let exclusiveStartKey: Record<string, unknown> | undefined
-    if (nextTokenParam) {
-      try {
-        exclusiveStartKey = JSON.parse(
-          Buffer.from(nextTokenParam, 'base64').toString('utf-8'),
-        )
-      } catch {
-        return error(400, 'Invalid nextToken')
-      }
-    }
-
+    const validStatuses = ['pending', 'approved', 'rejected']
     let changes
     let lastEvaluatedKey: Record<string, unknown> | undefined
 
-    if (
-      statusFilter &&
-      ['pending', 'approved', 'rejected'].includes(statusFilter)
-    ) {
+    if (statusFilter && validStatuses.includes(statusFilter)) {
       const result = await queryChangesByStatus(
         statusFilter,
         limit,
@@ -48,10 +30,13 @@ export const handler = async (
       changes = result.items
       lastEvaluatedKey = result.lastEvaluatedKey
     } else {
+      // Fetch a page-worth from each status and merge. Pagination tokens
+      // are not supported in this mode -- use a status filter for paging.
+      const perStatus = Math.ceil(limit / validStatuses.length)
       const [pending, approved, rejected] = await Promise.all([
-        queryChangesByStatus('pending', limit),
-        queryChangesByStatus('approved', limit),
-        queryChangesByStatus('rejected', limit),
+        queryChangesByStatus('pending', perStatus),
+        queryChangesByStatus('approved', perStatus),
+        queryChangesByStatus('rejected', perStatus),
       ])
       changes = [...pending.items, ...approved.items, ...rejected.items]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
@@ -76,9 +61,7 @@ export const handler = async (
       reviewedAt: c.reviewedAt,
     }))
 
-    const responseNextToken = lastEvaluatedKey
-      ? Buffer.from(JSON.stringify(lastEvaluatedKey)).toString('base64')
-      : undefined
+    const responseNextToken = encodeNextToken(lastEvaluatedKey)
 
     return ok({
       changes: summaries,

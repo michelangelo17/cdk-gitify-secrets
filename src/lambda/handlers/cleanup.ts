@@ -1,5 +1,5 @@
 import { getChangeById } from './shared/dynamo'
-import { listStagingSecrets, deleteStagingSecret } from './shared/secrets'
+import { listStagingSecrets, deleteStagingSecret, STAGING_PREFIX } from './shared/secrets'
 
 const MAX_AGE_DAYS = 7
 
@@ -40,7 +40,8 @@ export const handler = async (): Promise<void> => {
     if (shouldDelete) {
       console.log(`Deleting staging secret ${secret.name}: ${reason}`)
       try {
-        await deleteStagingSecret(secret.changeId ?? secret.name)
+        const id = secret.changeId ?? secret.name.replace(STAGING_PREFIX, '')
+        await deleteStagingSecret(id)
       } catch (e) {
         console.error(`Failed to delete ${secret.name}:`, e)
       }

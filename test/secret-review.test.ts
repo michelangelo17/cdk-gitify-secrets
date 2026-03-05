@@ -101,7 +101,6 @@ describe('SecretReview Construct', () => {
 
     new SecretReview(stack, 'SecretReview', {
       projects: [{ name: 'api', environments: ['dev'] }],
-      deployFrontend: false,
       requireMfa: true,
     })
 
@@ -151,7 +150,6 @@ describe('SecretReview Construct', () => {
           },
           { name: 'my_service_2', environments: ['test-env', 'prod_v2'] },
         ],
-        deployFrontend: false,
       })
     }).not.toThrow()
   })
@@ -181,19 +179,8 @@ describe('SecretReview Construct', () => {
     })
   })
 
-  test('creates CloudFront distribution by default', () => {
+  test('does not create CloudFront or S3 resources', () => {
     const { template } = createTestStack()
-    template.resourceCountIs('AWS::CloudFront::Distribution', 1)
-  })
-
-  test('skips CloudFront when deployFrontend is false', () => {
-    const app = new App()
-    const stack = new Stack(app, 'NoFrontendStack')
-    new SecretReview(stack, 'SecretReview', {
-      projects: [{ name: 'api', environments: ['dev'] }],
-      deployFrontend: false,
-    })
-    const template = Template.fromStack(stack)
     template.resourceCountIs('AWS::CloudFront::Distribution', 0)
     template.resourceCountIs('AWS::S3::Bucket', 0)
   })
@@ -261,7 +248,6 @@ describe('SecretReview Construct', () => {
 
     new SecretReview(stack, 'SecretReview', {
       projects: [{ name: 'api', environments: ['dev'] }],
-      deployFrontend: false,
       crossAccountReadAccess: ['222222222222', '333333333333'],
     })
 
@@ -307,7 +293,6 @@ describe('SecretReview Construct', () => {
 
     new SecretReview(stack, 'SecretReview', {
       projects: [{ name: 'api', environments: ['dev'] }],
-      deployFrontend: false,
       replicaRegions: [{ region: 'eu-west-1' }],
     })
 
@@ -338,7 +323,6 @@ describe('SecretReview Construct', () => {
 
     new SecretReview(stack, 'SecretReview', {
       projects: [{ name: 'api', environments: ['dev'] }],
-      deployFrontend: false,
       vpc,
     })
 
@@ -367,5 +351,57 @@ describe('SecretReview Construct', () => {
         SecurityGroupIds: Match.anyValue(),
       }),
     })
+  })
+
+  test('creates approver groups when enableApproverRole is true', () => {
+    const app = new App()
+    const stack = new Stack(app, 'ApproverStack')
+
+    new SecretReview(stack, 'SecretReview', {
+      projects: [
+        { name: 'backend-api', environments: ['dev'] },
+        { name: 'frontend', environments: ['dev'] },
+      ],
+      enableApproverRole: true,
+    })
+
+    const template = Template.fromStack(stack)
+
+    template.hasResourceProperties('AWS::Cognito::UserPoolGroup', {
+      GroupName: 'backend-api-approvers',
+    })
+
+    template.hasResourceProperties('AWS::Cognito::UserPoolGroup', {
+      GroupName: 'frontend-approvers',
+    })
+  })
+
+  test('sets ENABLE_APPROVER_ROLE env var when enableApproverRole is true', () => {
+    const app = new App()
+    const stack = new Stack(app, 'ApproverEnvStack')
+
+    new SecretReview(stack, 'SecretReview', {
+      projects: [{ name: 'api', environments: ['dev'] }],
+      enableApproverRole: true,
+    })
+
+    const template = Template.fromStack(stack)
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          ENABLE_APPROVER_ROLE: 'true',
+        }),
+      },
+    })
+  })
+
+  test('does not create approver groups by default', () => {
+    const { template } = createTestStack()
+
+    const groups = template.findResources('AWS::Cognito::UserPoolGroup')
+    const approverGroups = Object.values(groups).filter(
+      (g: any) => g.Properties?.GroupName?.includes('-approvers'),
+    )
+    expect(approverGroups.length).toBe(0)
   })
 })

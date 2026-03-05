@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type { CliConfig } from './auth'
+import { CliError } from './errors'
 
 const LOCAL_CONFIG_FILE = '.sr.json'
 
@@ -56,12 +57,13 @@ export const resolveProjectEnv = (
   if (!env) missing.push('env')
 
   if (missing.length > 0) {
-    console.error(`Missing ${missing.join(' and ')}. Provide via:`)
-    console.error('  Flag:    sr <command> -p <project> -e <env>')
-    console.error('  Local:   echo \'{"project":"x","env":"y"}\' > .sr.json')
-    console.error('  Global:  sr configure --default-project x --default-env y')
-    console.error('  Wizard:  sr init')
-    process.exit(1)
+    throw new CliError(
+      `Missing ${missing.join(' and ')}. Provide via:\n` +
+      '  Flag:    sr <command> -p <project> -e <env>\n' +
+      '  Local:   echo \'{"project":"x","env":"y"}\' > .sr.json\n' +
+      '  Global:  sr configure --default-project x --default-env y\n' +
+      '  Wizard:  sr init',
+    )
   }
 
   return { project: project!, env: env! }

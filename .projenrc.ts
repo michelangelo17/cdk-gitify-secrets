@@ -102,7 +102,4 @@ project.preCompileTask.spawn(bundleTask)
 project.addBins({ sr: 'lib/cli/index.js' })
 project.postCompileTask.exec('chmod +x lib/cli/index.js')
 
-// Frontend HTML is still needed at deploy time
-project.npmignore?.addPatterns('!/src/frontend/')
-
 project.synth()

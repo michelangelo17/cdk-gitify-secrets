@@ -4,7 +4,9 @@
 
 ### SecretReview <a name="SecretReview" id="cdk-gitify-secrets.SecretReview"></a>
 
-A CDK construct that deploys a GitOps-style secret management workflow built on AWS Secrets Manager, with review/approval, audit trail, and a web dashboard.
+A CDK construct that deploys a GitOps-style secret management workflow built on AWS Secrets Manager, with review/approval and audit trail.
+
+All operations are performed via the `sr` CLI.
 
 DynamoDB stores only metadata (who, when, status, key names).
 All secret values live exclusively in Secrets Manager, encrypted with a custom KMS key.
@@ -187,7 +189,6 @@ Any object.
 | <code><a href="#cdk-gitify-secrets.SecretReview.property.table">table</a></code> | <code>aws-cdk-lib.aws_dynamodb.ITable</code> | The DynamoDB table for change request metadata. |
 | <code><a href="#cdk-gitify-secrets.SecretReview.property.userPool">userPool</a></code> | <code>aws-cdk-lib.aws_cognito.IUserPool</code> | The Cognito user pool (created or provided). |
 | <code><a href="#cdk-gitify-secrets.SecretReview.property.userPoolClient">userPoolClient</a></code> | <code>aws-cdk-lib.aws_cognito.IUserPoolClient</code> | The Cognito user pool client. |
-| <code><a href="#cdk-gitify-secrets.SecretReview.property.frontendUrl">frontendUrl</a></code> | <code>string</code> | The CloudFront URL for the review dashboard. |
 
 ---
 
@@ -287,20 +288,6 @@ The Cognito user pool client.
 
 ---
 
-##### `frontendUrl`<sup>Optional</sup> <a name="frontendUrl" id="cdk-gitify-secrets.SecretReview.property.frontendUrl"></a>
-
-```typescript
-public readonly frontendUrl: string;
-```
-
-- *Type:* string
-
-The CloudFront URL for the review dashboard.
-
-Undefined if frontend is disabled.
-
----
-
 
 ## Structs <a name="Structs" id="Structs"></a>
 
@@ -366,9 +353,8 @@ const secretReviewProps: SecretReviewProps = { ... }
 | **Name** | **Type** | **Description** |
 | --- | --- | --- |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.projects">projects</a></code> | <code><a href="#cdk-gitify-secrets.ProjectConfig">ProjectConfig</a>[]</code> | Projects and their environments to manage. |
-| <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.allowedOrigins">allowedOrigins</a></code> | <code>string[]</code> | Allowed CORS origins. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.crossAccountReadAccess">crossAccountReadAccess</a></code> | <code>string[]</code> | AWS account IDs that should have read-only access to the managed secrets. |
-| <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.deployFrontend">deployFrontend</a></code> | <code>boolean</code> | Deploy the web review dashboard via S3 + CloudFront. |
+| <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.enableApproverRole">enableApproverRole</a></code> | <code>boolean</code> | Enable a separate approver role using Cognito user groups. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.enableProjectScoping">enableProjectScoping</a></code> | <code>boolean</code> | Enable per-project access control using Cognito user groups. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.preventSelfApproval">preventSelfApproval</a></code> | <code>boolean</code> | Block self-approval of changes. |
 | <code><a href="#cdk-gitify-secrets.SecretReviewProps.property.removalPolicy">removalPolicy</a></code> | <code>aws-cdk-lib.RemovalPolicy</code> | Removal policy for stateful resources (DynamoDB, KMS key, Secrets Manager secrets). |
@@ -393,19 +379,6 @@ Projects and their environments to manage.
 
 ---
 
-##### `allowedOrigins`<sup>Optional</sup> <a name="allowedOrigins" id="cdk-gitify-secrets.SecretReviewProps.property.allowedOrigins"></a>
-
-```typescript
-public readonly allowedOrigins: string[];
-```
-
-- *Type:* string[]
-- *Default:* CloudFront URL only (or ["*"] if frontend is disabled)
-
-Allowed CORS origins.
-
----
-
 ##### `crossAccountReadAccess`<sup>Optional</sup> <a name="crossAccountReadAccess" id="cdk-gitify-secrets.SecretReviewProps.property.crossAccountReadAccess"></a>
 
 ```typescript
@@ -424,16 +397,28 @@ consuming accounts only read final approved secret values.
 
 ---
 
-##### `deployFrontend`<sup>Optional</sup> <a name="deployFrontend" id="cdk-gitify-secrets.SecretReviewProps.property.deployFrontend"></a>
+##### `enableApproverRole`<sup>Optional</sup> <a name="enableApproverRole" id="cdk-gitify-secrets.SecretReviewProps.property.enableApproverRole"></a>
 
 ```typescript
-public readonly deployFrontend: boolean;
+public readonly enableApproverRole: boolean;
 ```
 
 - *Type:* boolean
-- *Default:* true
+- *Default:* false
 
-Deploy the web review dashboard via S3 + CloudFront.
+Enable a separate approver role using Cognito user groups.
+
+When enabled, a `<project>-approvers` Cognito group is created for each project.
+Only members of the approver group can approve, reject, or rollback changes.
+All authenticated users can still propose changes and view history.
+
+This is independent of `enableProjectScoping` -- both can be used together.
+
+Manage approver membership via the AWS CLI:
+```
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id <UserPoolId> --username alice@company.com --group-name backend-api-approvers
+```
 
 ---
 

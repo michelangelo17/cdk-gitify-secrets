@@ -12,7 +12,7 @@ import { config } from './config'
 const client = new SecretsManagerClient({})
 
 const SECRETS_PREFIX = config.secretsPrefix
-const STAGING_PREFIX = `${SECRETS_PREFIX}pending/`
+export const STAGING_PREFIX = `${SECRETS_PREFIX}pending/`
 
 export const getRealSecretName = (project: string, env: string): string =>
   `${SECRETS_PREFIX}${project}/${env}`
