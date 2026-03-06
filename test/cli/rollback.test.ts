@@ -55,7 +55,7 @@ describe('sr rollback', () => {
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'change-1' }),
+      expect.objectContaining({ id: 'change-1', latestStatus: 'approved' }),
       expect.any(Object),
     )
     expect(mockConfirm).toHaveBeenCalled()
@@ -84,7 +84,7 @@ describe('sr rollback', () => {
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
-      expect.objectContaining({ latest: true }),
+      expect.objectContaining({ latest: true, latestStatus: 'approved' }),
       expect.any(Object),
     )
     expect(mockApiRequest).toHaveBeenCalledWith(

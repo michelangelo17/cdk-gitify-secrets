@@ -9,6 +9,7 @@ export const shortId = (changeId: string): string => changeId.substring(0, 8)
 interface ChangeIdOpts {
   readonly id?: string
   readonly latest?: boolean
+  readonly latestStatus?: string
 }
 
 export const resolveChangeId = async (
@@ -24,10 +25,11 @@ export const resolveChangeId = async (
   }
 
   if (opts.latest) {
-    const data = await apiRequest('GET', '/changes?status=pending&limit=1', config)
+    const status = opts.latestStatus ?? 'pending'
+    const data = await apiRequest('GET', `/changes?status=${status}&limit=1`, config)
     const changes = data.changes as Array<Record<string, unknown>> | undefined
     if (!changes?.length) {
-      throw new CliError('No pending changes found')
+      throw new CliError(`No ${status} changes found`)
     }
     return String(changes[0].changeId)
   }

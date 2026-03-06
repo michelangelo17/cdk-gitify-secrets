@@ -15,7 +15,7 @@ export const registerRollbackCommand = (program: Command): void => {
     .option('-y, --yes', 'Skip confirmation prompt')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
-      const changeId = await resolveChangeId(opts, config)
+      const changeId = await resolveChangeId({ ...opts, latestStatus: 'approved' }, config)
 
       const meta = await apiRequest('GET', `/changes/${changeId}/diff`, config)
       if (meta.error) handleApiError(meta)

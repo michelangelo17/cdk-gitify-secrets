@@ -99,6 +99,31 @@ describe('resolveChangeId', () => {
     ).rejects.toThrow('No pending changes found')
   })
 
+  test('--latest with latestStatus queries the given status', async () => {
+    mockApiRequest.mockResolvedValue({
+      changes: [makeChange(FULL_UUID_1, { status: 'approved' })],
+    })
+
+    const result = await resolveChangeId(
+      { latest: true, latestStatus: 'approved' },
+      DEFAULT_TEST_CONFIG,
+    )
+    expect(result).toBe(FULL_UUID_1)
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      'GET',
+      '/changes?status=approved&limit=1',
+      DEFAULT_TEST_CONFIG,
+    )
+  })
+
+  test('--latest with latestStatus throws with correct status name', async () => {
+    mockApiRequest.mockResolvedValue({ changes: [] })
+
+    await expect(
+      resolveChangeId({ latest: true, latestStatus: 'approved' }, DEFAULT_TEST_CONFIG),
+    ).rejects.toThrow('No approved changes found')
+  })
+
   test('throws when both --id and --latest are provided', async () => {
     await expect(
       resolveChangeId(
