@@ -3,7 +3,7 @@ import { requireConfig, apiRequest } from '../auth'
 import { resolveChangeId, shortId } from '../change-id'
 import { formatDiffSymbol } from '../env-parser'
 import { CliError } from '../errors'
-import { BOLD, DIM, RESET, formatTimestamp, printChangeSummary } from '../formatting'
+import { BOLD, DIM, RESET, formatTimestamp, printChangeSummary, truncate, getFlexColumnWidth } from '../formatting'
 
 const showChangeDetail = async (
   changeId: string,
@@ -31,14 +31,14 @@ export const registerStatusCommand = (program: Command): void => {
   program
     .command('status')
     .description('Check pending changes or inspect a specific change')
-    .option('--change-id <id>', 'Specific change ID to inspect (accepts short prefix)')
+    .option('--id <id>', 'Specific change ID to inspect (accepts short prefix)')
     .option('--latest', 'Inspect the most recent pending change')
     .option('-p, --project <project>', 'Filter by project')
     .option('-e, --env <env>', 'Filter by environment')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
 
-      if (opts.changeId || opts.latest) {
+      if (opts.id || opts.latest) {
         const changeId = await resolveChangeId(opts, config)
         await showChangeDetail(changeId, config)
         return
@@ -65,28 +65,31 @@ export const registerStatusCommand = (program: Command): void => {
         return
       }
 
+      const reasonWidth = getFlexColumnWidth(45)
+
       console.log(`\n${BOLD}${changes.length} pending change(s)${RESET}\n`)
       console.log(
-        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(20)} ${'Proposed'.padEnd(20)} Reason`,
+        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(20)} ${'Proposed'.padEnd(12)} Reason`,
       )
       console.log(
-        `  ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(20)} ${'─'.repeat(30)}`,
+        `  ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(12)} ${'─'.repeat(reasonWidth)}`,
       )
 
       for (const c of changes) {
         const sid = shortId(String(c.changeId ?? ''))
         const projEnv = `${c.project}/${c.env}`
         const proposed = c.createdAt ? formatTimestamp(String(c.createdAt)) : ''
-        const reason = String(c.reason ?? '').substring(0, 30)
+        const reason = truncate(String(c.reason ?? ''), reasonWidth)
         console.log(
-          `  ${sid.padEnd(10)} ${projEnv.padEnd(20)} ${proposed.padEnd(20)} ${reason}`,
+          `  ${sid.padEnd(10)} ${projEnv.padEnd(20)} ${proposed.padEnd(12)} ${reason}`,
         )
       }
 
       console.log(`\n${DIM}Quick actions:${RESET}`)
       for (const c of changes) {
         const sid = shortId(String(c.changeId ?? ''))
-        console.log(`  sr review  --change-id ${sid}`)
+        console.log(`  sr approve --id ${sid}`)
+        console.log(`  sr review  --id ${sid}`)
       }
       console.log()
     })

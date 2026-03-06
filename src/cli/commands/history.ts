@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
 import { shortId } from '../change-id'
-import { BOLD, DIM, RESET, formatTimestamp } from '../formatting'
+import { BOLD, DIM, RESET, formatTimestamp, colorizeStatus, truncate, getFlexColumnWidth } from '../formatting'
 import { resolveProjectEnv } from '../resolve-defaults'
 
 const printQuickActions = (
@@ -13,7 +13,8 @@ const printQuickActions = (
   console.log(`\n${DIM}Quick actions:${RESET}`)
   for (const c of pending) {
     const sid = shortId(String(c.changeId ?? ''))
-    console.log(`  sr review  --change-id ${sid}`)
+    console.log(`  sr approve --id ${sid}`)
+    console.log(`  sr review  --id ${sid}`)
   }
 }
 
@@ -47,22 +48,24 @@ export const registerHistoryCommand = (program: Command): void => {
           return
         }
 
+        const reasonWidth = getFlexColumnWidth(61)
+
         console.log(`\n${BOLD}History for ${project}/${env}${RESET}\n`)
         console.log(
-          `  ${'ID'.padEnd(10)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(20)} ${'By'.padEnd(25)} Reason`,
+          `  ${'ID'.padEnd(10)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(12)} ${'By'.padEnd(25)} Reason`,
         )
         console.log(
-          `  ${'─'.repeat(10)} ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(25)} ${'─'.repeat(30)}`,
+          `  ${'─'.repeat(10)} ${'─'.repeat(10)} ${'─'.repeat(12)} ${'─'.repeat(25)} ${'─'.repeat(reasonWidth)}`,
         )
 
         for (const h of history) {
           const sid = shortId(String(h.changeId ?? '?'))
-          const status = String(h.status ?? '?')
+          const status = colorizeStatus(String(h.status ?? '?'), 10)
           const proposed = h.createdAt ? formatTimestamp(String(h.createdAt)) : ''
           const by = String(h.proposedBy ?? '?').substring(0, 24)
-          const reason = String(h.reason ?? '').substring(0, 30)
+          const reason = truncate(String(h.reason ?? ''), reasonWidth)
           console.log(
-            `  ${sid.padEnd(10)} ${status.padEnd(10)} ${proposed.padEnd(20)} ${by.padEnd(25)} ${reason}`,
+            `  ${sid.padEnd(10)} ${status} ${proposed.padEnd(12)} ${by.padEnd(25)} ${reason}`,
           )
         }
 
@@ -90,23 +93,25 @@ export const registerHistoryCommand = (program: Command): void => {
         changes = changes.filter((c) => c.project === opts.project)
       }
 
+      const reasonWidth = getFlexColumnWidth(82)
+
       console.log(`\n${BOLD}Changes${opts.project ? ` for project ${opts.project}` : ''}${RESET}\n`)
       console.log(
-        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(20)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(20)} ${'By'.padEnd(25)} Reason`,
+        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(20)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(12)} ${'By'.padEnd(25)} Reason`,
       )
       console.log(
-        `  ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(25)} ${'─'.repeat(30)}`,
+        `  ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(10)} ${'─'.repeat(12)} ${'─'.repeat(25)} ${'─'.repeat(reasonWidth)}`,
       )
 
       for (const c of changes) {
         const sid = shortId(String(c.changeId ?? '?'))
         const projEnv = `${c.project}/${c.env}`
-        const status = String(c.status ?? '?')
+        const status = colorizeStatus(String(c.status ?? '?'), 10)
         const proposed = c.createdAt ? formatTimestamp(String(c.createdAt)) : ''
         const by = String(c.proposedBy ?? '?').substring(0, 24)
-        const reason = String(c.reason ?? '').substring(0, 30)
+        const reason = truncate(String(c.reason ?? ''), reasonWidth)
         console.log(
-          `  ${sid.padEnd(10)} ${projEnv.padEnd(20)} ${status.padEnd(10)} ${proposed.padEnd(20)} ${by.padEnd(25)} ${reason}`,
+          `  ${sid.padEnd(10)} ${projEnv.padEnd(20)} ${status} ${proposed.padEnd(12)} ${by.padEnd(25)} ${reason}`,
         )
       }
 

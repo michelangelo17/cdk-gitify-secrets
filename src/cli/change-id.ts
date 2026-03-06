@@ -7,7 +7,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export const shortId = (changeId: string): string => changeId.substring(0, 8)
 
 interface ChangeIdOpts {
-  readonly changeId?: string
+  readonly id?: string
   readonly latest?: boolean
 }
 
@@ -15,12 +15,12 @@ export const resolveChangeId = async (
   opts: ChangeIdOpts,
   config: CliConfig,
 ): Promise<string> => {
-  if (opts.changeId && opts.latest) {
-    throw new CliError('Cannot use both --change-id and --latest')
+  if (opts.id && opts.latest) {
+    throw new CliError('Cannot use both --id and --latest')
   }
 
-  if (!opts.changeId && !opts.latest) {
-    throw new CliError('Specify --change-id <id> or --latest')
+  if (!opts.id && !opts.latest) {
+    throw new CliError('Specify --id <id> or --latest')
   }
 
   if (opts.latest) {
@@ -32,7 +32,7 @@ export const resolveChangeId = async (
     return String(changes[0].changeId)
   }
 
-  const input = opts.changeId!
+  const input = opts.id!
   if (UUID_RE.test(input)) return input
 
   const data = await apiRequest('GET', '/changes', config)
