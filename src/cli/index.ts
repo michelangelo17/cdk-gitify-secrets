@@ -9,6 +9,7 @@ import { registerProposeCommand } from './commands/propose'
 import { registerPullCommand } from './commands/pull'
 import { registerRejectCommand } from './commands/reject'
 import { registerReviewCommand } from './commands/review'
+import { registerRollbackCommand } from './commands/rollback'
 import { registerStatusCommand } from './commands/status'
 import { CliError } from './errors'
 
@@ -29,6 +30,7 @@ registerPullCommand(program)
 registerReviewCommand(program)
 registerApproveCommand(program)
 registerRejectCommand(program)
+registerRollbackCommand(program)
 registerHistoryCommand(program)
 registerStatusCommand(program)
 

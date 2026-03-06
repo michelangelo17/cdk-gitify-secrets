@@ -12,9 +12,9 @@ Your app reads secrets from AWS Secrets Manager at runtime. The question is how 
 2. **Deploy scripts** — a shell script reads `.env` and calls the AWS SDK. Fast, but whoever runs the script has full write access. No approval gate, no diff, no audit trail you can query without digging through CloudTrail.
 3. **CDK `Secret` construct** — reference `.env` values in your CDK code and create secrets at deploy time. Convenient, but the secret values end up in your CloudFormation template (visible in the AWS console and in deployment artifacts). Low-risk if your account is locked down, but it's still plaintext in places you might not expect.
 
-All three share the same gap: **there's no review workflow**. A typo, a wrong environment, or a copy-paste mistake goes straight to production with no second pair of eyes.
+All three share the same gap: **there's no review workflow and no easy rollback**. A typo, a wrong environment, or a copy-paste mistake goes straight to production with no second pair of eyes — and undoing it means manually figuring out what the previous values were.
 
-cdk-gitify-secrets adds that missing step — a **propose → review → approve** cycle between your `.env` file and Secrets Manager, like a pull request for secrets. Secrets never pass through the API (they're written directly via the AWS SDK), and every change is tracked with diffs, approvals, and audit history.
+cdk-gitify-secrets adds that missing step — a **propose → review → approve** cycle between your `.env` file and Secrets Manager, like a pull request for secrets. Secrets never pass through the API (they're written directly via the AWS SDK), and every change is tracked with diffs, approvals, and audit history. If something goes wrong, `sr rollback` restores the previous secret version in one command — using Secrets Manager's native version staging, so it works even after staging secrets are cleaned up.
 
 **When to use this:** teams where more than one person touches secrets, or where you want an auditable change history without relying solely on CloudTrail.
 
@@ -435,6 +435,20 @@ $ npx sr pull
 Pulled 3 variable(s) to .env
 ```
 
+**5. Roll back** if something goes wrong:
+
+```bash
+$ npx sr rollback --latest -r "Stripe key was for wrong environment"
+Change:  a1b2c3d4-...
+Status:  approved
+Project: backend-api/production
+By:      alice@company.com
+Reason:  Add Stripe API key
+
+Roll back this change? (y/N): y
+Rolled back change a1b2c3d4-...
+```
+
 You can check pending changes at any time with `sr status`:
 
 ```
@@ -615,6 +629,7 @@ npx sr status --id abc-123-def
 | `sr review --id ID [--show-all] [--json]` | Review a change with full value-level diff |
 | `sr approve --id ID [-c COMMENT] [-y] [--skip-review]` | Approve a pending change |
 | `sr reject --id ID [-c COMMENT] [-y]` | Reject a pending change |
+| `sr rollback --id ID -r "reason" [-y]` | Roll back an approved change |
 | `sr history [-p PROJECT] [-e ENV] [--all] [--status S] [--limit N]` | View change history |
 | `sr status [--id ID] [-p PROJECT] [-e ENV]` | Check pending changes / inspect a change |
 
@@ -694,7 +709,20 @@ Status transitions (pending -> approved/rejected) are enforced atomically via Dy
 
 ### Rollback
 
-Rollback uses Secrets Manager's native `AWSPREVIOUS` version stage to retrieve the state of the secret before the last write. No staging secret needed -- rollback works even after staging secrets are cleaned up.
+Roll back an approved change to restore the previous secret version:
+
+```bash
+# Roll back a specific change
+npx sr rollback --id <id> -r "Broke payment processing"
+
+# Roll back the most recent approved change
+npx sr rollback --latest -r "Wrong API key for production"
+
+# Skip confirmation
+npx sr rollback --id <id> -r "Revert" -y
+```
+
+Under the hood, rollback uses Secrets Manager's native `AWSPREVIOUS` version stage to retrieve the state of the secret before the last write. No staging secret needed -- rollback works even after staging secrets are cleaned up. The rollback itself is recorded in change history with its own audit trail.
 
 ### API rate limiting
 
