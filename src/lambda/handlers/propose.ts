@@ -84,7 +84,8 @@ export const handler = async (
       return error(400, 'Staging secret project/env does not match request')
     }
 
-    const proposedSize = JSON.stringify(stagingData.proposed).length
+    const proposedJson = JSON.stringify(stagingData.proposed)
+    const proposedSize = Buffer.byteLength(proposedJson, 'utf8')
     if (proposedSize > 60000) {
       return error(400, `Secret payload too large (${Math.round(proposedSize / 1024)}KB). AWS Secrets Manager limit is 64KB.`)
     }
@@ -130,6 +131,7 @@ export const handler = async (
       handler: 'propose',
       requestId: event.requestContext.requestId,
       error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
     }))
     return error(500, 'Internal server error')
   }

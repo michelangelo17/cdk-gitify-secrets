@@ -65,23 +65,28 @@ export const registerStatusCommand = (program: Command): void => {
         return
       }
 
-      const reasonWidth = getFlexColumnWidth(45)
+      const projWidth = Math.min(
+        Math.max(7, ...changes.map((c) => `${c.project}/${c.env}`.length)),
+        35,
+      )
+      const fixedWidth = 10 + projWidth + 12 + 3 // ID + proj + proposed + gaps
+      const reasonWidth = getFlexColumnWidth(fixedWidth)
 
       console.log(`\n${BOLD}${changes.length} pending change(s)${RESET}\n`)
       console.log(
-        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(20)} ${'Proposed'.padEnd(12)} Reason`,
+        `  ${'ID'.padEnd(10)} ${'Project'.padEnd(projWidth)} ${'Proposed'.padEnd(12)} Reason`,
       )
       console.log(
-        `  ${'─'.repeat(10)} ${'─'.repeat(20)} ${'─'.repeat(12)} ${'─'.repeat(reasonWidth)}`,
+        `  ${'─'.repeat(10)} ${'─'.repeat(projWidth)} ${'─'.repeat(12)} ${'─'.repeat(reasonWidth)}`,
       )
 
       for (const c of changes) {
         const sid = shortId(String(c.changeId ?? ''))
-        const projEnv = `${c.project}/${c.env}`
+        const projEnv = truncate(`${c.project}/${c.env}`, projWidth)
         const proposed = c.createdAt ? formatTimestamp(String(c.createdAt)) : ''
         const reason = truncate(String(c.reason ?? ''), reasonWidth)
         console.log(
-          `  ${sid.padEnd(10)} ${projEnv.padEnd(20)} ${proposed.padEnd(12)} ${reason}`,
+          `  ${sid.padEnd(10)} ${projEnv.padEnd(projWidth)} ${proposed.padEnd(12)} ${reason}`,
         )
       }
 

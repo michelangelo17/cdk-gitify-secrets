@@ -20,9 +20,16 @@ export const registerPullCommand = (program: Command): void => {
     .option('-o, --output <file>', 'Output .env file path', '.env')
     .option('--keys-only', 'Only show variable keys, not values')
     .action(async (opts) => {
-      const config = requireConfig(['region'])
+      const config = requireConfig([])
       const { project, env } = resolveProjectEnv(opts, config)
-      const region = config.region || process.env.AWS_REGION || 'us-east-1'
+      const region = config.region || process.env.AWS_REGION
+      if (!region) {
+        throw new CliError(
+          'AWS region is not configured.\n' +
+          'Set it via: sr configure --region <region>\n' +
+          'Or set the AWS_REGION environment variable.',
+        )
+      }
       const prefix = config.secretPrefix || 'secret-review/'
       const secretName = `${prefix}${project}/${env}`
 
