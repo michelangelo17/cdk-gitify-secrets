@@ -94,6 +94,7 @@ export const handler = async (
       handler: 'rollback',
       requestId: event.requestContext.requestId,
       error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
     }))
     return error(500, 'Internal server error')
   }
