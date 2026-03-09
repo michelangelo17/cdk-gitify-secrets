@@ -160,7 +160,7 @@ describe('SecretReview Construct', () => {
     // Plus the BucketDeployment custom resource Lambda and possibly others
     const lambdas = template.findResources('AWS::Lambda::Function')
     const handlerFunctions = Object.values(lambdas).filter(
-      (r: any) => r.Properties?.MemorySize === 256,
+      (r: any) => r.Properties?.MemorySize === 512,
     )
     expect(handlerFunctions.length).toBe(8)
   })

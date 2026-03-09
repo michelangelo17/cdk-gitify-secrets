@@ -64,7 +64,11 @@ export const handler = async (
       changeId,
     })
   } catch (e) {
-    console.error('Reject error:', e)
+    console.error(JSON.stringify({
+      handler: 'reject',
+      requestId: event.requestContext.requestId,
+      error: e instanceof Error ? e.message : String(e),
+    }))
     return error(500, 'Internal server error')
   }
 }

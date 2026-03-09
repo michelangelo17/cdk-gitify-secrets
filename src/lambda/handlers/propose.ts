@@ -45,7 +45,7 @@ export const handler = async (
     if (!parsed.ok) return parsed.error
     const { body } = parsed
 
-    if (!body.project || !body.env || !body.stagingSecretName || !body.reason) {
+    if (!body.project || !body.env || !body.stagingSecretName || !body.reason?.trim()) {
       return error(
         400,
         'Missing required fields: project, env, stagingSecretName, reason',
@@ -82,6 +82,11 @@ export const handler = async (
 
     if (stagingData.project !== body.project || stagingData.env !== body.env) {
       return error(400, 'Staging secret project/env does not match request')
+    }
+
+    const proposedSize = JSON.stringify(stagingData.proposed).length
+    if (proposedSize > 60000) {
+      return error(400, `Secret payload too large (${Math.round(proposedSize / 1024)}KB). AWS Secrets Manager limit is 64KB.`)
     }
 
     const { values: currentValues, versionId: secretVersionId } =
@@ -121,7 +126,11 @@ export const handler = async (
       message: 'Change proposed successfully',
     })
   } catch (e) {
-    console.error('Propose error:', e)
+    console.error(JSON.stringify({
+      handler: 'propose',
+      requestId: event.requestContext.requestId,
+      error: e instanceof Error ? e.message : String(e),
+    }))
     return error(500, 'Internal server error')
   }
 }

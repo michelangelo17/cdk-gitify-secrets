@@ -20,8 +20,12 @@ const hiddenPrompt = (question: string): Promise<string> =>
         process.stdout.write('\n')
         resolve(input)
       } else if (c === '\u0003') {
+        stdin.removeListener('data', onData)
+        if (stdin.isTTY) stdin.setRawMode(wasRaw)
+        stdin.pause()
         process.stdout.write('\n')
-        process.exit(130)
+        resolve('')
+        return
       } else if (c === '\u007f' || c === '\b') {
         if (input.length > 0) {
           input = input.slice(0, -1)

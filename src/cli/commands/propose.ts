@@ -8,7 +8,7 @@ import {
 } from '@aws-sdk/client-secrets-manager'
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
-import { createSmClient, resolveSecretPrefix } from '../aws'
+import { createSmClient, resolveSecretPrefix, STAGING_TAG_KEY } from '../aws'
 import { formatDiffSymbol, parseEnvFile } from '../env-parser'
 import { CliError } from '../errors'
 import { resolveProjectEnv } from '../resolve-defaults'
@@ -19,12 +19,12 @@ export const registerProposeCommand = (program: Command): void => {
     .description('Propose a change from a .env file')
     .option('-p, --project <project>', 'Project name')
     .option('-e, --env <env>', 'Environment name')
-    .option('-r, --reason <reason>', 'Reason for the change')
+    .requiredOption('-r, --reason <reason>', 'Reason for the change (required)')
     .option('-f, --file <file>', 'Path to .env file', '.env')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
       const { project, env } = resolveProjectEnv(opts, config)
-      const reason = opts.reason ?? `Update ${project}/${env}`
+      const reason = opts.reason
 
       if (!fs.existsSync(opts.file)) {
         throw new CliError(`File not found: ${opts.file}`)
@@ -88,7 +88,7 @@ export const registerProposeCommand = (program: Command): void => {
             Tags: [
               { Key: 'createdAt', Value: new Date().toISOString() },
               { Key: 'changeId', Value: changeId },
-              { Key: 'secretReviewStaging', Value: 'true' },
+              { Key: STAGING_TAG_KEY, Value: 'true' },
             ],
           }),
         )
@@ -114,7 +114,7 @@ export const registerProposeCommand = (program: Command): void => {
           }
           console.log()
         }
-        console.log('  Run: sr review --change-id ' + String(data.changeId))
+        console.log('  Run: sr review --id ' + String(data.changeId))
       } else if (data.message === 'No changes detected') {
         console.log('\n  No changes detected. Everything is up to date.')
       } else {

@@ -42,10 +42,10 @@ export const handler = async (): Promise<void> => {
       try {
         const id = secret.changeId ?? secret.name.replace(STAGING_PREFIX, '')
         await deleteStagingSecret(id)
+        deletedCount++
       } catch (e) {
         console.error(`Failed to delete ${secret.name}:`, e)
       }
-      deletedCount++
     }
   }
 

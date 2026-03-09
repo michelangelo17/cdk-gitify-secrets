@@ -9,7 +9,7 @@ export const registerApproveCommand = (program: Command): void => {
   program
     .command('approve')
     .description('Approve a pending change')
-    .option('--change-id <id>', 'Change ID to approve (accepts short prefix)')
+    .option('--id <id>', 'Change ID to approve (accepts short prefix)')
     .option('--latest', 'Approve the most recent pending change')
     .option('-c, --comment <text>', 'Approval comment')
     .option('-y, --yes', 'Skip confirmation prompt')
@@ -20,7 +20,6 @@ export const registerApproveCommand = (program: Command): void => {
 
       if (!opts.skipReview) {
         const result = await reviewChange(changeId, config)
-        if (!result) return
         printReview(result)
 
         if (result.status !== 'pending') {

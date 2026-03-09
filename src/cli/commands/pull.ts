@@ -6,6 +6,7 @@ import {
 import { Command } from 'commander'
 import { requireConfig, awsCredentials } from '../auth'
 import { writeEnvFile } from '../env-parser'
+import { CliError } from '../errors'
 import { resolveProjectEnv } from '../resolve-defaults'
 
 export const registerPullCommand = (program: Command): void => {
@@ -19,7 +20,7 @@ export const registerPullCommand = (program: Command): void => {
     .option('-o, --output <file>', 'Output .env file path', '.env')
     .option('--keys-only', 'Only show variable keys, not values')
     .action(async (opts) => {
-      const config = requireConfig([])
+      const config = requireConfig(['region'])
       const { project, env } = resolveProjectEnv(opts, config)
       const region = config.region || process.env.AWS_REGION || 'us-east-1'
       const prefix = config.secretPrefix || 'secret-review/'
@@ -43,7 +44,12 @@ export const registerPullCommand = (program: Command): void => {
           return
         }
 
-        const values: Record<string, string> = JSON.parse(result.SecretString)
+        let values: Record<string, string>
+        try {
+          values = JSON.parse(result.SecretString)
+        } catch {
+          throw new CliError('Secret value is not valid JSON. Expected key-value format.')
+        }
         const keys = Object.keys(values)
 
         if (keys.length === 0) {
@@ -67,11 +73,10 @@ export const registerPullCommand = (program: Command): void => {
         }
       } catch (e) {
         if (e instanceof ResourceNotFoundException) {
-          console.error(`Secret not found: ${secretName}`)
-          console.error(
+          throw new CliError(
+            `Secret not found: ${secretName}\n` +
             'This project/environment may not have been initialized yet.',
           )
-          process.exit(1)
         }
         throw e
       }

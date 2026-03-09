@@ -18,7 +18,7 @@ export const handler = async (
     if (!parsed.ok) return parsed.error
     const { body } = parsed
 
-    if (!body.changeId || !body.reason) {
+    if (!body.changeId || !body.reason?.trim()) {
       return error(400, 'Missing required fields: changeId, reason')
     }
 
@@ -90,7 +90,11 @@ export const handler = async (
       env: targetChange.env,
     })
   } catch (e) {
-    console.error('Rollback error:', e)
+    console.error(JSON.stringify({
+      handler: 'rollback',
+      requestId: event.requestContext.requestId,
+      error: e instanceof Error ? e.message : String(e),
+    }))
     return error(500, 'Internal server error')
   }
 }

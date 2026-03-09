@@ -24,146 +24,136 @@ jest.mock('../../src/cli/prompt', () => ({
   prompt: jest.fn(),
 }))
 
-const mockReviewChange = jest.fn()
-const mockPrintReview = jest.fn()
-jest.mock('../../src/cli/commands/review', () => ({
-  reviewChange: mockReviewChange,
-  printReview: mockPrintReview,
-}))
+import { registerRollbackCommand } from '../../src/cli/commands/rollback'
 
-import { registerRejectCommand } from '../../src/cli/commands/reject'
-
-describe('sr reject', () => {
+describe('sr rollback', () => {
   let program: Command
 
   beforeEach(() => {
     jest.clearAllMocks()
     program = new Command()
     program.exitOverride()
-    registerRejectCommand(program)
+    registerRollbackCommand(program)
     mockResolveChangeId.mockResolvedValue('change-1')
   })
 
-  test('shows review, asks for confirmation, calls reject API', async () => {
-    mockReviewChange.mockResolvedValue({
-      changeId: 'change-1',
-      status: 'pending',
-      project: 'api',
-      env: 'dev',
-    })
+  test('shows summary, asks for confirmation, calls rollback API', async () => {
+    mockApiRequest
+      .mockResolvedValueOnce({
+        changeId: 'change-1',
+        status: 'approved',
+        project: 'api',
+        env: 'dev',
+        proposedBy: 'alice@co.com',
+        reason: 'Add key',
+      })
+      .mockResolvedValueOnce({ message: 'Rolled back change change-1' })
     mockConfirm.mockResolvedValue(true)
-    mockApiRequest.mockResolvedValue({ message: 'Change change-1 rejected' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1'])
+    await program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Wrong values'])
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'change-1' }),
+      expect.objectContaining({ id: 'change-1', latestStatus: 'approved' }),
       expect.any(Object),
     )
-    expect(mockReviewChange).toHaveBeenCalledWith('change-1', expect.any(Object))
-    expect(mockPrintReview).toHaveBeenCalled()
     expect(mockConfirm).toHaveBeenCalled()
     expect(mockApiRequest).toHaveBeenCalledWith(
       'POST',
-      '/changes/change-1/reject',
+      '/rollback',
       expect.any(Object),
-      {},
+      { changeId: 'change-1', reason: 'Wrong values' },
     )
   })
 
   test('supports --latest flag', async () => {
     mockResolveChangeId.mockResolvedValue('resolved-latest-id')
-    mockReviewChange.mockResolvedValue({
-      changeId: 'resolved-latest-id',
-      status: 'pending',
-      project: 'api',
-      env: 'dev',
-    })
+    mockApiRequest
+      .mockResolvedValueOnce({
+        changeId: 'resolved-latest-id',
+        status: 'approved',
+        project: 'api',
+        env: 'dev',
+      })
+      .mockResolvedValueOnce({ message: 'Rolled back' })
     mockConfirm.mockResolvedValue(true)
-    mockApiRequest.mockResolvedValue({ message: 'Rejected' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--latest'])
+    await program.parseAsync(['node', 'sr', 'rollback', '--latest', '-r', 'Revert'])
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
-      expect.objectContaining({ latest: true }),
+      expect.objectContaining({ latest: true, latestStatus: 'approved' }),
       expect.any(Object),
     )
     expect(mockApiRequest).toHaveBeenCalledWith(
       'POST',
-      '/changes/resolved-latest-id/reject',
+      '/rollback',
       expect.any(Object),
-      {},
+      { changeId: 'resolved-latest-id', reason: 'Revert' },
     )
   })
 
   test('aborts when user declines confirmation', async () => {
-    mockReviewChange.mockResolvedValue({
+    mockApiRequest.mockResolvedValueOnce({
       changeId: 'change-1',
-      status: 'pending',
+      status: 'approved',
       project: 'api',
       env: 'dev',
     })
     mockConfirm.mockResolvedValue(false)
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1'])
+    await program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Revert'])
     consoleSpy.mockRestore()
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(
       'POST',
-      expect.stringContaining('reject'),
+      '/rollback',
       expect.anything(),
       expect.anything(),
     )
   })
 
-  test('skips review with --skip-review and -y', async () => {
-    mockApiRequest.mockResolvedValue({ message: 'Rejected' })
+  test('skips confirmation with -y', async () => {
+    mockApiRequest
+      .mockResolvedValueOnce({
+        changeId: 'change-1',
+        status: 'approved',
+        project: 'api',
+        env: 'dev',
+      })
+      .mockResolvedValueOnce({ message: 'Rolled back' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1', '--skip-review', '-y'])
+    await program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Revert', '-y'])
     consoleSpy.mockRestore()
 
-    expect(mockReviewChange).not.toHaveBeenCalled()
-    expect(mockApiRequest).toHaveBeenCalled()
+    expect(mockConfirm).not.toHaveBeenCalled()
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      'POST',
+      '/rollback',
+      expect.any(Object),
+      expect.objectContaining({ changeId: 'change-1' }),
+    )
   })
 
-  test('skips confirmation with -y', async () => {
-    mockReviewChange.mockResolvedValue({
+  test('refuses to roll back non-approved change', async () => {
+    mockApiRequest.mockResolvedValueOnce({
       changeId: 'change-1',
       status: 'pending',
       project: 'api',
       env: 'dev',
     })
-    mockApiRequest.mockResolvedValue({ message: 'Rejected' })
-
-    const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1', '-y'])
-    consoleSpy.mockRestore()
-
-    expect(mockConfirm).not.toHaveBeenCalled()
-    expect(mockApiRequest).toHaveBeenCalled()
-  })
-
-  test('refuses to reject non-pending change', async () => {
-    mockReviewChange.mockResolvedValue({
-      changeId: 'change-1',
-      status: 'approved',
-      project: 'api',
-      env: 'dev',
-    })
 
     await expect(
-      program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1']),
-    ).rejects.toThrow('Cannot reject')
+      program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Revert']),
+    ).rejects.toThrow('Can only roll back approved changes')
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(
       'POST',
-      expect.stringContaining('reject'),
+      '/rollback',
       expect.anything(),
       expect.anything(),
     )

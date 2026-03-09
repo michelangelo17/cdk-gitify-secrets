@@ -55,11 +55,11 @@ describe('sr approve', () => {
     mockApiRequest.mockResolvedValue({ message: 'Change change-1 approved and applied' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'approve', '--change-id', 'change-1'])
+    await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1'])
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
-      expect.objectContaining({ changeId: 'change-1' }),
+      expect.objectContaining({ id: 'change-1' }),
       expect.any(Object),
     )
     expect(mockReviewChange).toHaveBeenCalledWith('change-1', expect.any(Object))
@@ -110,7 +110,7 @@ describe('sr approve', () => {
     mockConfirm.mockResolvedValue(false)
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'approve', '--change-id', 'change-1'])
+    await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1'])
     consoleSpy.mockRestore()
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(
@@ -126,7 +126,7 @@ describe('sr approve', () => {
     mockApiRequest.mockResolvedValue({ message: 'Approved' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'approve', '--change-id', 'change-1', '--skip-review', '-y'])
+    await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1', '--skip-review', '-y'])
     consoleSpy.mockRestore()
 
     expect(mockReviewChange).not.toHaveBeenCalled()
@@ -142,7 +142,7 @@ describe('sr approve', () => {
     mockApiRequest.mockResolvedValue({ message: 'Approved' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'approve', '--change-id', 'change-1', '-y'])
+    await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1', '-y'])
     consoleSpy.mockRestore()
 
     expect(mockConfirm).not.toHaveBeenCalled()
@@ -158,7 +158,7 @@ describe('sr approve', () => {
     })
 
     await expect(
-      program.parseAsync(['node', 'sr', 'approve', '--change-id', 'change-1']),
+      program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1']),
     ).rejects.toThrow('Cannot approve')
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(

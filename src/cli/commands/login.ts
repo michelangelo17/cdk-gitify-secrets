@@ -4,6 +4,7 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import { Command } from 'commander'
 import { requireConfig, saveConfig, getConfigPath } from '../auth'
+import { CliError } from '../errors'
 import { prompt } from '../prompt'
 
 export const registerLoginCommand = (program: Command): void => {
@@ -46,21 +47,17 @@ export const registerLoginCommand = (program: Command): void => {
           console.log(`Logged in as ${email}`)
           console.log(`Token stored at ${getConfigPath()}`)
         } else if (result.ChallengeName) {
-          console.error(
-            `Authentication challenge required: ${result.ChallengeName}`,
-          )
-          console.error(
+          throw new CliError(
+            `Authentication challenge required: ${result.ChallengeName}\n` +
             'Please complete the challenge in the AWS Console first (e.g., set a new password).',
           )
-          process.exit(1)
         } else {
-          console.error('Authentication failed.')
-          process.exit(1)
+          throw new CliError('Authentication failed.')
         }
       } catch (e) {
+        if (e instanceof CliError) throw e
         const message = e instanceof Error ? e.message : String(e)
-        console.error(`Login failed: ${message}`)
-        process.exit(1)
+        throw new CliError(`Login failed: ${message}`)
       }
     })
 }

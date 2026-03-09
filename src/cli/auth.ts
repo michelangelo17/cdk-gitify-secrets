@@ -139,8 +139,11 @@ export const apiRequest = async (
   config: CliConfig,
   body?: Record<string, unknown>,
 ): Promise<Record<string, unknown>> => {
+  if (!config.apiUrl) {
+    throw new CliError('API URL is not configured. Run: sr configure --api-url <url>')
+  }
   const token = await ensureValidToken(config)
-  const url = `${config.apiUrl!.replace(/\/$/, '')}${urlPath}`
+  const url = `${config.apiUrl.replace(/\/$/, '')}${urlPath}`
 
   if (!url.startsWith('https://') && !url.startsWith('http://localhost')) {
     throw new CliError(

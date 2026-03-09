@@ -66,5 +66,5 @@ export const resolveProjectEnv = (
     )
   }
 
-  return { project: project!, env: env! }
+  return { project: project as string, env: env as string }
 }
