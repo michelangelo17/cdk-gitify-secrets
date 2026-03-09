@@ -66,11 +66,10 @@ describe('reviewChange', () => {
 
     const result = await reviewChange('change-1', config)
 
-    expect(result).toBeDefined()
-    expect(result!.added).toEqual({ NEW: 'val' })
-    expect(result!.removed).toEqual({ OLD: 'gone' })
-    expect(result!.modified).toEqual({ DB: { old: 'old-url', new: 'new-url' } })
-    expect(result!.unchanged).toEqual({ KEEP: 'same' })
+    expect(result.added).toEqual({ NEW: 'val' })
+    expect(result.removed).toEqual({ OLD: 'gone' })
+    expect(result.modified).toEqual({ DB: { old: 'old-url', new: 'new-url' } })
+    expect(result.unchanged).toEqual({ KEEP: 'same' })
   })
 
   test('handles first-time secret (no live secret)', async () => {
@@ -95,13 +94,12 @@ describe('reviewChange', () => {
 
     const result = await reviewChange('change-2', config)
 
-    expect(result).toBeDefined()
-    expect(result!.added).toEqual({ API_KEY: 'secret', DB: 'new-url' })
-    expect(result!.removed).toEqual({})
-    expect(result!.modified).toEqual({})
+    expect(result.added).toEqual({ API_KEY: 'secret', DB: 'new-url' })
+    expect(result.removed).toEqual({})
+    expect(result.modified).toEqual({})
   })
 
-  test('returns undefined when staging secret not found', async () => {
+  test('throws CliError when staging secret not found', async () => {
     mockApiRequest.mockResolvedValue({
       changeId: 'change-3',
       project: 'api',
@@ -115,20 +113,16 @@ describe('reviewChange', () => {
 
     mockSmSend.mockRejectedValueOnce(new ResourceNotFoundException('not found'))
 
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    const result = await reviewChange('change-3', config)
-    consoleSpy.mockRestore()
-
-    expect(result).toBeUndefined()
+    await expect(reviewChange('change-3', config)).rejects.toThrow(
+      'Staging secret not found',
+    )
   })
 
-  test('returns undefined when API returns an error', async () => {
+  test('throws CliError when API returns an error', async () => {
     mockApiRequest.mockResolvedValue({ error: 'Change not found' })
 
-    const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
-    const result = await reviewChange('change-404', config)
-    consoleSpy.mockRestore()
-
-    expect(result).toBeUndefined()
+    await expect(reviewChange('change-404', config)).rejects.toThrow(
+      'Change not found',
+    )
   })
 })

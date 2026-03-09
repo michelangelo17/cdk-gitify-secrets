@@ -13,6 +13,7 @@ import {
   awsCredentials,
 } from '../auth'
 import type { CliConfig } from '../auth'
+import { CliError } from '../errors'
 import { prompt, confirm } from '../prompt'
 import { loadLocalConfig, saveLocalConfig } from '../resolve-defaults'
 
@@ -104,18 +105,14 @@ const loginFlow = async (config: CliConfig, opts: {
   )
 
   if (result.ChallengeName) {
-    console.error(
-      `\n  Authentication challenge required: ${result.ChallengeName}`,
+    throw new CliError(
+      `Authentication challenge required: ${result.ChallengeName}\n` +
+      'Please complete the challenge in the AWS Console first (e.g., set a new password).',
     )
-    console.error(
-      '  Please complete the challenge in the AWS Console first (e.g., set a new password).',
-    )
-    process.exit(1)
   }
 
   if (!result.AuthenticationResult) {
-    console.error('\n  Authentication failed.')
-    process.exit(1)
+    throw new CliError('Authentication failed.')
   }
 
   config.idToken = result.AuthenticationResult.IdToken
@@ -154,9 +151,10 @@ export const registerInitCommand = (program: Command): void => {
         config.region
 
       if (!region) {
-        console.error('  Could not determine AWS region.')
-        console.error('  Pass --region or set the AWS_REGION environment variable.')
-        process.exit(1)
+        throw new CliError(
+          'Could not determine AWS region.\n' +
+          'Pass --region or set the AWS_REGION environment variable.',
+        )
       }
 
       // ── Step 1: Configure from stack or manually ──────────────

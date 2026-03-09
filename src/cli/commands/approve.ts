@@ -20,7 +20,6 @@ export const registerApproveCommand = (program: Command): void => {
 
       if (!opts.skipReview) {
         const result = await reviewChange(changeId, config)
-        if (!result) return
         printReview(result)
 
         if (result.status !== 'pending') {

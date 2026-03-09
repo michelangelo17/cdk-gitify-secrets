@@ -13,6 +13,7 @@ const client = new SecretsManagerClient({})
 
 const SECRETS_PREFIX = config.secretsPrefix
 export const STAGING_PREFIX = `${SECRETS_PREFIX}pending/`
+export const STAGING_TAG_KEY = 'secretReviewStaging'
 
 export const getRealSecretName = (project: string, env: string): string =>
   `${SECRETS_PREFIX}${project}/${env}`
@@ -35,10 +36,13 @@ export const getCurrentSecretValue = async (
       new GetSecretValueCommand({ SecretId: secretName }),
     )
     if (result.SecretString) {
-      return {
-        values: JSON.parse(result.SecretString),
-        versionId: result.VersionId,
+      let values: Record<string, string>
+      try {
+        values = JSON.parse(result.SecretString)
+      } catch {
+        throw new Error(`Secret ${secretName} contains invalid JSON`)
       }
+      return { values, versionId: result.VersionId }
     }
     return { values: {}, versionId: result.VersionId }
   } catch (e) {
@@ -63,7 +67,11 @@ export const getSecretByVersionStage = async (
       }),
     )
     if (result.SecretString) {
-      return JSON.parse(result.SecretString)
+      try {
+        return JSON.parse(result.SecretString)
+      } catch {
+        throw new Error(`Secret ${secretName} contains invalid JSON`)
+      }
     }
     return undefined
   } catch (e) {
@@ -103,7 +111,11 @@ export const getStagingSecretValue = async (changeId: string): Promise<
       new GetSecretValueCommand({ SecretId: secretName }),
     )
     if (result.SecretString) {
-      return JSON.parse(result.SecretString)
+      try {
+        return JSON.parse(result.SecretString)
+      } catch {
+        throw new Error(`Staging secret ${secretName} contains invalid JSON`)
+      }
     }
     return undefined
   } catch (e) {
@@ -147,7 +159,7 @@ export const listStagingSecrets = async (): Promise<
       new ListSecretsCommand({
         Filters: [
           { Key: 'name', Values: [STAGING_PREFIX] },
-          { Key: 'tag-key', Values: ['secretReviewStaging'] },
+          { Key: 'tag-key', Values: [STAGING_TAG_KEY] },
         ],
         NextToken: nextToken,
       }),
@@ -156,9 +168,10 @@ export const listStagingSecrets = async (): Promise<
     for (const secret of result.SecretList ?? []) {
       const createdAtTag = secret.Tags?.find((t) => t.Key === 'createdAt')
       const changeIdTag = secret.Tags?.find((t) => t.Key === 'changeId')
+      if (!secret.Name || !secret.ARN) continue
       secrets.push({
-        name: secret.Name!,
-        arn: secret.ARN!,
+        name: secret.Name,
+        arn: secret.ARN,
         createdAt: createdAtTag?.Value,
         changeId: changeIdTag?.Value,
       })

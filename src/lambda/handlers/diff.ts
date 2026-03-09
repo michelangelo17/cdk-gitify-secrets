@@ -38,7 +38,11 @@ export const handler = async (
       comment: change.comment,
     })
   } catch (e) {
-    console.error('Diff error:', e)
+    console.error(JSON.stringify({
+      handler: 'diff',
+      requestId: event.requestContext.requestId,
+      error: e instanceof Error ? e.message : String(e),
+    }))
     return error(500, 'Internal server error')
   }
 }

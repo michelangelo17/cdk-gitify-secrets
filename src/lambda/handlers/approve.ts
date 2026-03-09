@@ -68,9 +68,6 @@ export const handler = async (
       )
     }
 
-    await putSecretValue(change.project, change.env, stagingData.proposed)
-    await deleteStagingSecret(changeId)
-
     try {
       await updateChangeStatus(
         change.pk,
@@ -94,6 +91,9 @@ export const handler = async (
       throw e
     }
 
+    await putSecretValue(change.project, change.env, stagingData.proposed)
+    await deleteStagingSecret(changeId)
+
     return ok({
       message: `Change ${changeId} approved and applied`,
       changeId,
@@ -101,7 +101,11 @@ export const handler = async (
       env: change.env,
     })
   } catch (e) {
-    console.error('Approve error:', e)
+    console.error(JSON.stringify({
+      handler: 'approve',
+      requestId: event.requestContext.requestId,
+      error: e instanceof Error ? e.message : String(e),
+    }))
     return error(500, 'Internal server error')
   }
 }

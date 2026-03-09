@@ -766,10 +766,17 @@ The cleanup Lambda requires `secretsmanager:ListSecrets` with `Resource: "*"` --
 
 These are conscious design trade-offs, not bugs:
 
+- **Rollback is limited to one version back** -- uses Secrets Manager's `AWSPREVIOUS` version stage, which only stores the immediately prior version. If you go A → B → C, you can roll back to B but not to A. For deeper history, reject and re-propose from a known-good `.env` file.
+- **Maximum secret size is 64KB** -- this is an AWS Secrets Manager limit. Each project/environment's secret is stored as a single JSON object. If you need more, split across multiple projects.
+- **External secret modifications** -- if someone modifies a secret via the AWS Console or CLI while a change is pending, the approve handler detects the conflict (409). However, if they modify it _after_ approval, a rollback restores to the externally-modified version, not the pre-approval one.
+- **Rollback history shows synthetic diff** -- rollback entries in `sr history` show `[rollback of {changeId}]` rather than a key-level diff. You can see _that_ a rollback happened but not the exact key changes.
+- **Reject doesn't check self-rejection** -- `preventSelfApproval` blocks approving your own changes but not rejecting them. Rejecting your own change is low-risk (you proposed it), so this is intentional.
+- **Cross-project listing requires status filter for pagination** -- `sr history --all --next-token` uses the DynamoDB scan API, which requires a consistent filter for pagination to work correctly. Always include `--status` when paginating.
 - **No per-project RBAC by default** -- without `enableProjectScoping`, all authenticated users can see and act on all projects. Enable project scoping for team isolation.
 - **Rollback is available to all authenticated users** -- unless `enableApproverRole` is enabled, there is no separate role for rollback. Any authenticated user (or any user in the project group, if scoping is enabled) can roll back an approved change.
 - **CLI password masking is best-effort** -- Node.js does not provide a built-in way to suppress terminal echo. The password prompt shows `*` characters but the underlying terminal may briefly display real characters depending on platform and timing. This is cosmetic; passwords are never logged or stored insecurely.
 - **`--password` flag is visible in shell history** -- use the `SR_PASSWORD` environment variable or the interactive prompt instead.
+- **Approve is not atomic** -- the approve handler updates DynamoDB (audit trail) before writing the secret value to Secrets Manager. If the secret write fails (rare — e.g. transient AWS error), the change is marked as approved but the secret is unchanged. This ordering is intentional: the alternative (secret-first) risks unaudited secret modifications, which is worse. A fully atomic cross-service transaction is not possible without significant complexity. Check CloudWatch logs if an approval succeeds in the CLI but the secret values don't update.
 
 ## Using Secrets in Your Application
 

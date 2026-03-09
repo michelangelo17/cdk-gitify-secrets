@@ -68,7 +68,11 @@ export const handler = async (
       ...(responseNextToken ? { nextToken: responseNextToken } : {}),
     })
   } catch (e) {
-    console.error('List error:', e)
+    console.error(JSON.stringify({
+      handler: 'list-changes',
+      requestId: event.requestContext.requestId,
+      error: e instanceof Error ? e.message : String(e),
+    }))
     return error(500, 'Internal server error')
   }
 }

@@ -8,7 +8,7 @@ import {
 } from '@aws-sdk/client-secrets-manager'
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
-import { createSmClient, resolveSecretPrefix } from '../aws'
+import { createSmClient, resolveSecretPrefix, STAGING_TAG_KEY } from '../aws'
 import { formatDiffSymbol, parseEnvFile } from '../env-parser'
 import { CliError } from '../errors'
 import { resolveProjectEnv } from '../resolve-defaults'
@@ -88,7 +88,7 @@ export const registerProposeCommand = (program: Command): void => {
             Tags: [
               { Key: 'createdAt', Value: new Date().toISOString() },
               { Key: 'changeId', Value: changeId },
-              { Key: 'secretReviewStaging', Value: 'true' },
+              { Key: STAGING_TAG_KEY, Value: 'true' },
             ],
           }),
         )

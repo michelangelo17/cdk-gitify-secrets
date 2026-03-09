@@ -1,5 +1,6 @@
 import { Command } from 'commander'
 import { loadConfig, saveConfig, getConfigPath, configFromStack } from '../auth'
+import { CliError } from '../errors'
 
 export const registerConfigureCommand = (program: Command): void => {
   program
@@ -26,9 +27,10 @@ export const registerConfigureCommand = (program: Command): void => {
           opts.region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? config.region
 
         if (!region) {
-          console.error('Could not determine AWS region.')
-          console.error('Pass --region or set the AWS_REGION environment variable.')
-          process.exit(1)
+          throw new CliError(
+            'Could not determine AWS region.\n' +
+            'Pass --region or set the AWS_REGION environment variable.',
+          )
         }
 
         try {
@@ -36,9 +38,9 @@ export const registerConfigureCommand = (program: Command): void => {
           Object.assign(config, stackConfig)
           console.log(`Loaded config from stack "${opts.fromStack}"`)
         } catch (e) {
+          if (e instanceof CliError) throw e
           const msg = e instanceof Error ? e.message : String(e)
-          console.error(`Failed to read stack: ${msg}`)
-          process.exit(1)
+          throw new CliError(`Failed to read stack: ${msg}`)
         }
       }
 

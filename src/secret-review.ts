@@ -15,6 +15,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager'
 import { Construct } from 'constructs'
 
 const HANDLERS_DIR = path.join(__dirname, '..', 'lib', 'lambda-bundles')
+const STAGING_TAG_KEY = 'secretReviewStaging'
 
 /**
  * Configuration for a project managed by SecretReview.
@@ -474,7 +475,7 @@ export class SecretReview extends Construct {
         handler: 'index.handler',
         environment: sharedEnv,
         timeout: Duration.seconds(30),
-        memorySize: 256,
+        memorySize: 512,
         ...(lambdaVpcConfig
           ? {
             vpc: lambdaVpcConfig.vpc,
@@ -590,7 +591,7 @@ export class SecretReview extends Construct {
         resources: [stagingSecretArn],
         conditions: {
           StringEquals: {
-            'secretsmanager:ResourceTag/secretReviewStaging': 'true',
+            [`secretsmanager:ResourceTag/${STAGING_TAG_KEY}`]: 'true',
           },
         },
       }),
@@ -619,7 +620,7 @@ export class SecretReview extends Construct {
     }
 
     this.api = httpApi
-    this.apiUrl = httpApi.url!
+    this.apiUrl = httpApi.url ?? ''
 
     const addRoute = (
       method: apigatewayv2.HttpMethod,

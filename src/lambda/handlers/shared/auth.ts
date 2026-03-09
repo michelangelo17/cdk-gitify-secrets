@@ -5,7 +5,11 @@ export const getUserEmail = (
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): string => {
   const { claims } = event.requestContext.authorizer.jwt
-  return (claims.email as string) ?? (claims.sub as string) ?? 'unknown'
+  const email = (claims.email as string) ?? (claims.sub as string)
+  if (!email) {
+    throw new Error('Missing user identity: neither email nor sub claim found in JWT')
+  }
+  return email
 }
 
 export const getUserGroups = (

@@ -76,9 +76,9 @@ export const registerHistoryCommand = (program: Command): void => {
 
       let queryPath = '/changes'
       const params: string[] = []
-      if (opts.status) params.push(`status=${opts.status}`)
+      if (opts.status) params.push(`status=${encodeURIComponent(opts.status)}`)
       params.push(`limit=${limit}`)
-      if (opts.nextToken) params.push(`nextToken=${opts.nextToken}`)
+      if (opts.nextToken) params.push(`nextToken=${encodeURIComponent(opts.nextToken)}`)
       if (params.length > 0) queryPath += `?${params.join('&')}`
 
       const data = await apiRequest('GET', queryPath, config)
@@ -117,7 +117,11 @@ export const registerHistoryCommand = (program: Command): void => {
 
       const nextToken = data.nextToken as string | undefined
       if (nextToken) {
-        console.log(`\n  Next page: sr history --all --next-token ${nextToken}`)
+        const parts = ['sr history --all']
+        if (opts.status) parts.push(`--status ${opts.status}`)
+        if (opts.project) parts.push(`-p ${opts.project}`)
+        parts.push(`--next-token ${nextToken}`)
+        console.log(`\n  Next page: ${parts.join(' ')}`)
       }
 
       printQuickActions(changes)

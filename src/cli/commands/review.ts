@@ -7,6 +7,7 @@ import type { CliConfig } from '../auth'
 import { requireConfig, apiRequest } from '../auth'
 import { createSmClient, resolveSecretPrefix } from '../aws'
 import { resolveChangeId } from '../change-id'
+import { CliError, handleApiError } from '../errors'
 import {
   RED, GREEN, YELLOW, DIM, RESET,
   printChangeSummary,
@@ -35,12 +36,9 @@ interface DiffEntry {
 export const reviewChange = async (
   changeId: string,
   config: CliConfig,
-): Promise<ReviewResult | undefined> => {
+): Promise<ReviewResult> => {
   const meta = await apiRequest('GET', `/changes/${changeId}/diff`, config)
-  if (meta.error) {
-    console.error(`Error: ${meta.error}`)
-    return undefined
-  }
+  if (meta.error) handleApiError(meta)
 
   const prefix = resolveSecretPrefix(config)
   const smClient = createSmClient(config)
@@ -52,15 +50,18 @@ export const reviewChange = async (
       new GetSecretValueCommand({ SecretId: stagingSecretName }),
     )
     if (staging.SecretString) {
-      const parsed = JSON.parse(staging.SecretString) as {
-        proposed?: Record<string, string>
+      let parsed: { proposed?: Record<string, string> }
+      try {
+        parsed = JSON.parse(staging.SecretString)
+      } catch {
+        throw new CliError('Staging secret value is not valid JSON.')
       }
       proposed = parsed.proposed ?? {}
     }
   } catch (e) {
+    if (e instanceof CliError) throw e
     if (e instanceof ResourceNotFoundException) {
-      console.error('Staging secret not found. The change may have expired.')
-      return undefined
+      throw new CliError('Staging secret not found. The change may have expired.')
     }
     throw e
   }
@@ -74,7 +75,11 @@ export const reviewChange = async (
       new GetSecretValueCommand({ SecretId: realSecretName }),
     )
     if (current.SecretString) {
-      live = JSON.parse(current.SecretString)
+      try {
+        live = JSON.parse(current.SecretString)
+      } catch {
+        throw new CliError('Current secret value is not valid JSON.')
+      }
     }
   } catch (e) {
     if (!(e instanceof ResourceNotFoundException)) throw e
@@ -178,8 +183,6 @@ export const registerReviewCommand = (program: Command): void => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
       const changeId = await resolveChangeId(opts, config)
       const result = await reviewChange(changeId, config)
-      if (result) {
-        printReview(result, opts)
-      }
+      printReview(result, opts)
     })
 }
