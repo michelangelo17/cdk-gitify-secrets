@@ -12,6 +12,7 @@ const project = new awscdk.AwsCdkConstructLibrary({
 
   cdkVersion: '2.170.0',
   defaultReleaseBranch: 'main',
+  majorVersion: 1,
   jsiiVersion: '~5.9.0',
   projenrcTs: true,
 
@@ -52,7 +53,7 @@ const project = new awscdk.AwsCdkConstructLibrary({
   ],
 
   // Stability
-  stability: 'experimental',
+  stability: 'stable',
 
   // License
   license: 'MIT',
