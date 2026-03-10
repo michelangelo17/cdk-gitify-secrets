@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { Command } from 'commander'
 import { registerApproveCommand } from './commands/approve'
 import { registerConfigureCommand } from './commands/configure'
@@ -20,7 +22,7 @@ program
   .description(
     'cdk-gitify-secrets CLI -- propose, review, and manage environment secrets',
   )
-  .version('0.1.0')
+  .version(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')).version)
 
 registerInitCommand(program)
 registerConfigureCommand(program)
