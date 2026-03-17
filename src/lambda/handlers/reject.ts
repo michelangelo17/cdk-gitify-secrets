@@ -2,7 +2,11 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { assertApproverAccess, assertProjectAccess, getUserEmail } from './shared/auth'
+import {
+  assertApproverAccess,
+  assertProjectAccess,
+  getUserEmail,
+} from './shared/auth'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
 import { parseBody } from './shared/request'
 import { ok, error } from './shared/response'
@@ -48,10 +52,7 @@ export const handler = async (
         body.comment,
       )
     } catch (e) {
-      if (
-        e instanceof Error &&
-        e.name === 'ConditionalCheckFailedException'
-      ) {
+      if (e instanceof Error && e.name === 'ConditionalCheckFailedException') {
         return error(409, 'Change was already reviewed by another user')
       }
       throw e
@@ -64,12 +65,14 @@ export const handler = async (
       changeId,
     })
   } catch (e) {
-    console.error(JSON.stringify({
-      handler: 'reject',
-      requestId: event.requestContext.requestId,
-      error: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
-    }))
+    console.error(
+      JSON.stringify({
+        handler: 'reject',
+        requestId: event.requestContext.requestId,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      }),
+    )
     return error(500, 'Internal server error')
   }
 }

@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import type { CliConfig } from '../../src/cli/auth'
-import { resolveProjectEnv, loadLocalConfig, saveLocalConfig } from '../../src/cli/resolve-defaults'
+import {
+  resolveProjectEnv,
+  loadLocalConfig,
+  saveLocalConfig,
+} from '../../src/cli/resolve-defaults'
 
 describe('resolveProjectEnv', () => {
   let tmpDir: string
@@ -68,11 +72,7 @@ describe('resolveProjectEnv', () => {
       JSON.stringify({ project: 'local-proj', env: 'local-env' }),
     )
 
-    const result = resolveProjectEnv(
-      { project: 'flag-proj' },
-      {},
-      tmpDir,
-    )
+    const result = resolveProjectEnv({ project: 'flag-proj' }, {}, tmpDir)
 
     expect(result).toEqual({ project: 'flag-proj', env: 'local-env' })
   })
@@ -81,15 +81,13 @@ describe('resolveProjectEnv', () => {
     expect(() => resolveProjectEnv({}, {}, tmpDir)).toThrow(
       /Missing project and env/,
     )
-    expect(() => resolveProjectEnv({}, {}, tmpDir)).toThrow(
-      /\.sr\.json/,
-    )
+    expect(() => resolveProjectEnv({}, {}, tmpDir)).toThrow(/\.sr\.json/)
   })
 
   test('throws when only project is missing', () => {
-    expect(() =>
-      resolveProjectEnv({ env: 'dev' }, {}, tmpDir),
-    ).toThrow(/Missing project/)
+    expect(() => resolveProjectEnv({ env: 'dev' }, {}, tmpDir)).toThrow(
+      /Missing project/,
+    )
   })
 })
 

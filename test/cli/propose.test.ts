@@ -24,7 +24,9 @@ jest.mock('@aws-sdk/client-secrets-manager', () => ({
 }))
 
 jest.mock('@aws-sdk/client-cloudformation', () => SDK_MOCKS.cloudformation())
-jest.mock('@aws-sdk/client-cognito-identity-provider', () => SDK_MOCKS.cognito())
+jest.mock('@aws-sdk/client-cognito-identity-provider', () =>
+  SDK_MOCKS.cognito(),
+)
 
 const mockApiRequest = jest.fn()
 jest.mock('../../src/cli/auth', () => ({
@@ -74,7 +76,9 @@ describe('propose command', () => {
       SecretString: JSON.stringify({ DB_URL: 'postgres://old' }),
     })
     // Create staging secret
-    mockSmSend.mockResolvedValueOnce({ ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:staging' })
+    mockSmSend.mockResolvedValueOnce({
+      ARN: 'arn:aws:secretsmanager:us-east-1:123:secret:staging',
+    })
     // Tag resource
     mockSmSend.mockResolvedValueOnce({})
 
@@ -111,9 +115,9 @@ describe('propose command', () => {
     fs.writeFileSync(emptyFile, '# just comments\n')
 
     try {
-      await expect(
-        runPropose('-f', emptyFile, '-r', 'test'),
-      ).rejects.toThrow('No variables found')
+      await expect(runPropose('-f', emptyFile, '-r', 'test')).rejects.toThrow(
+        'No variables found',
+      )
     } finally {
       fs.unlinkSync(emptyFile)
     }
@@ -144,7 +148,10 @@ describe('propose command', () => {
 
   test('handles no-changes-detected response', async () => {
     mockSmSend.mockResolvedValueOnce({
-      SecretString: JSON.stringify({ DB_URL: 'postgres://localhost', API_KEY: 'test-key' }),
+      SecretString: JSON.stringify({
+        DB_URL: 'postgres://localhost',
+        API_KEY: 'test-key',
+      }),
     })
     mockSmSend.mockResolvedValueOnce({ ARN: 'arn:aws:secretsmanager:staging' })
     mockSmSend.mockResolvedValueOnce({})

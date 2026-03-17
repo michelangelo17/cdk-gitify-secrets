@@ -3,7 +3,15 @@ import { requireConfig, apiRequest } from '../auth'
 import { resolveChangeId, shortId } from '../change-id'
 import { formatDiffSymbol } from '../env-parser'
 import { CliError } from '../errors'
-import { BOLD, DIM, RESET, formatTimestamp, printChangeSummary, truncate, getFlexColumnWidth } from '../formatting'
+import {
+  BOLD,
+  DIM,
+  RESET,
+  formatTimestamp,
+  printChangeSummary,
+  truncate,
+  getFlexColumnWidth,
+} from '../formatting'
 
 const showChangeDetail = async (
   changeId: string,

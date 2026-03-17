@@ -11,11 +11,17 @@ export const registerRollbackCommand = (program: Command): void => {
     .description('Roll back an approved change to the previous secret version')
     .option('--id <id>', 'Change ID to roll back (accepts short prefix)')
     .option('--latest', 'Roll back the most recent approved change')
-    .requiredOption('-r, --reason <reason>', 'Reason for the rollback (required)')
+    .requiredOption(
+      '-r, --reason <reason>',
+      'Reason for the rollback (required)',
+    )
     .option('-y, --yes', 'Skip confirmation prompt')
     .action(async (opts) => {
       const config = requireConfig(['apiUrl', 'clientId', 'region'])
-      const changeId = await resolveChangeId({ ...opts, latestStatus: 'approved' }, config)
+      const changeId = await resolveChangeId(
+        { ...opts, latestStatus: 'approved' },
+        config,
+      )
 
       const meta = await apiRequest('GET', `/changes/${changeId}/diff`, config)
       if (meta.error) handleApiError(meta)
@@ -23,7 +29,9 @@ export const registerRollbackCommand = (program: Command): void => {
       printChangeSummary(meta)
 
       if (meta.status !== 'approved') {
-        throw new CliError(`Change is ${meta.status}. Can only roll back approved changes.`)
+        throw new CliError(
+          `Change is ${meta.status}. Can only roll back approved changes.`,
+        )
       }
 
       console.log()

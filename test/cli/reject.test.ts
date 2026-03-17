@@ -3,7 +3,9 @@ import { SDK_MOCKS, DEFAULT_TEST_CONFIG } from './_helpers'
 
 jest.mock('@aws-sdk/client-secrets-manager', () => SDK_MOCKS.secretsManager())
 jest.mock('@aws-sdk/client-cloudformation', () => SDK_MOCKS.cloudformation())
-jest.mock('@aws-sdk/client-cognito-identity-provider', () => SDK_MOCKS.cognito())
+jest.mock('@aws-sdk/client-cognito-identity-provider', () =>
+  SDK_MOCKS.cognito(),
+)
 
 const mockApiRequest = jest.fn()
 jest.mock('../../src/cli/auth', () => ({
@@ -62,7 +64,10 @@ describe('sr reject', () => {
       expect.objectContaining({ id: 'change-1' }),
       expect.any(Object),
     )
-    expect(mockReviewChange).toHaveBeenCalledWith('change-1', expect.any(Object))
+    expect(mockReviewChange).toHaveBeenCalledWith(
+      'change-1',
+      expect.any(Object),
+    )
     expect(mockPrintReview).toHaveBeenCalled()
     expect(mockConfirm).toHaveBeenCalled()
     expect(mockApiRequest).toHaveBeenCalledWith(
@@ -125,7 +130,15 @@ describe('sr reject', () => {
     mockApiRequest.mockResolvedValue({ message: 'Rejected' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'reject', '--id', 'change-1', '--skip-review', '-y'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'reject',
+      '--id',
+      'change-1',
+      '--skip-review',
+      '-y',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockReviewChange).not.toHaveBeenCalled()

@@ -88,6 +88,8 @@ export const printChangeSummary = (meta: {
   console.log(`${BOLD}By:${RESET}      ${meta.proposedBy}`)
   console.log(`${BOLD}Reason:${RESET}  ${meta.reason}`)
   if (meta.createdAt) {
-    console.log(`${BOLD}Date:${RESET}    ${formatRelativeTime(String(meta.createdAt))}`)
+    console.log(
+      `${BOLD}Date:${RESET}    ${formatRelativeTime(String(meta.createdAt))}`,
+    )
   }
 }

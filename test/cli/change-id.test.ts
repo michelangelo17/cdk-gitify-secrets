@@ -48,12 +48,13 @@ describe('resolveChangeId', () => {
       changes: [makeChange(FULL_UUID_1), makeChange(FULL_UUID_3)],
     })
 
-    const result = await resolveChangeId(
-      { id: '64fa' },
+    const result = await resolveChangeId({ id: '64fa' }, DEFAULT_TEST_CONFIG)
+    expect(result).toBe(FULL_UUID_3)
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      'GET',
+      '/changes',
       DEFAULT_TEST_CONFIG,
     )
-    expect(result).toBe(FULL_UUID_3)
-    expect(mockApiRequest).toHaveBeenCalledWith('GET', '/changes', DEFAULT_TEST_CONFIG)
   })
 
   test('throws for an ambiguous prefix', async () => {
@@ -79,10 +80,7 @@ describe('resolveChangeId', () => {
       changes: [makeChange(FULL_UUID_1)],
     })
 
-    const result = await resolveChangeId(
-      { latest: true },
-      DEFAULT_TEST_CONFIG,
-    )
+    const result = await resolveChangeId({ latest: true }, DEFAULT_TEST_CONFIG)
     expect(result).toBe(FULL_UUID_1)
     expect(mockApiRequest).toHaveBeenCalledWith(
       'GET',
@@ -120,23 +118,23 @@ describe('resolveChangeId', () => {
     mockApiRequest.mockResolvedValue({ changes: [] })
 
     await expect(
-      resolveChangeId({ latest: true, latestStatus: 'approved' }, DEFAULT_TEST_CONFIG),
+      resolveChangeId(
+        { latest: true, latestStatus: 'approved' },
+        DEFAULT_TEST_CONFIG,
+      ),
     ).rejects.toThrow('No approved changes found')
   })
 
   test('throws when both --id and --latest are provided', async () => {
     await expect(
-      resolveChangeId(
-        { id: FULL_UUID_1, latest: true },
-        DEFAULT_TEST_CONFIG,
-      ),
+      resolveChangeId({ id: FULL_UUID_1, latest: true }, DEFAULT_TEST_CONFIG),
     ).rejects.toThrow('Cannot use both --id and --latest')
   })
 
   test('throws when neither --id nor --latest is provided', async () => {
-    await expect(
-      resolveChangeId({}, DEFAULT_TEST_CONFIG),
-    ).rejects.toThrow('Specify --id <id> or --latest')
+    await expect(resolveChangeId({}, DEFAULT_TEST_CONFIG)).rejects.toThrow(
+      'Specify --id <id> or --latest',
+    )
   })
 
   test('ambiguous error includes project/env context', async () => {

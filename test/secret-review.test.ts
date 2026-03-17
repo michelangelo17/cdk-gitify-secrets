@@ -399,8 +399,8 @@ describe('SecretReview Construct', () => {
     const { template } = createTestStack()
 
     const groups = template.findResources('AWS::Cognito::UserPoolGroup')
-    const approverGroups = Object.values(groups).filter(
-      (g: any) => g.Properties?.GroupName?.includes('-approvers'),
+    const approverGroups = Object.values(groups).filter((g: any) =>
+      g.Properties?.GroupName?.includes('-approvers'),
     )
     expect(approverGroups.length).toBe(0)
   })

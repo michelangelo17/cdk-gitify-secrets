@@ -15,7 +15,9 @@ jest.mock('@aws-sdk/client-secrets-manager', () => ({
 }))
 
 jest.mock('@aws-sdk/client-cloudformation', () => SDK_MOCKS.cloudformation())
-jest.mock('@aws-sdk/client-cognito-identity-provider', () => SDK_MOCKS.cognito())
+jest.mock('@aws-sdk/client-cognito-identity-provider', () =>
+  SDK_MOCKS.cognito(),
+)
 
 const mockWriteEnvFile = jest.fn()
 jest.mock('../../src/cli/env-parser', () => ({
@@ -61,7 +63,10 @@ describe('pull command', () => {
 
   test('writes .env file with secret values', async () => {
     mockSmSend.mockResolvedValueOnce({
-      SecretString: JSON.stringify({ DB_URL: 'postgres://...', API_KEY: 'secret' }),
+      SecretString: JSON.stringify({
+        DB_URL: 'postgres://...',
+        API_KEY: 'secret',
+      }),
     })
 
     await runPull()
@@ -74,7 +79,10 @@ describe('pull command', () => {
 
   test('does not write file with --keys-only', async () => {
     mockSmSend.mockResolvedValueOnce({
-      SecretString: JSON.stringify({ DB_URL: 'postgres://...', API_KEY: 'secret' }),
+      SecretString: JSON.stringify({
+        DB_URL: 'postgres://...',
+        API_KEY: 'secret',
+      }),
     })
 
     await runPull('--keys-only')

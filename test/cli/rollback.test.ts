@@ -3,7 +3,9 @@ import { SDK_MOCKS, DEFAULT_TEST_CONFIG } from './_helpers'
 
 jest.mock('@aws-sdk/client-secrets-manager', () => SDK_MOCKS.secretsManager())
 jest.mock('@aws-sdk/client-cloudformation', () => SDK_MOCKS.cloudformation())
-jest.mock('@aws-sdk/client-cognito-identity-provider', () => SDK_MOCKS.cognito())
+jest.mock('@aws-sdk/client-cognito-identity-provider', () =>
+  SDK_MOCKS.cognito(),
+)
 
 const mockApiRequest = jest.fn()
 jest.mock('../../src/cli/auth', () => ({
@@ -51,7 +53,15 @@ describe('sr rollback', () => {
     mockConfirm.mockResolvedValue(true)
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Wrong values'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'rollback',
+      '--id',
+      'change-1',
+      '-r',
+      'Wrong values',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
@@ -80,7 +90,14 @@ describe('sr rollback', () => {
     mockConfirm.mockResolvedValue(true)
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'rollback', '--latest', '-r', 'Revert'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'rollback',
+      '--latest',
+      '-r',
+      'Revert',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockResolveChangeId).toHaveBeenCalledWith(
@@ -105,7 +122,15 @@ describe('sr rollback', () => {
     mockConfirm.mockResolvedValue(false)
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Revert'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'rollback',
+      '--id',
+      'change-1',
+      '-r',
+      'Revert',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(
@@ -127,7 +152,16 @@ describe('sr rollback', () => {
       .mockResolvedValueOnce({ message: 'Rolled back' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Revert', '-y'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'rollback',
+      '--id',
+      'change-1',
+      '-r',
+      'Revert',
+      '-y',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockConfirm).not.toHaveBeenCalled()
@@ -148,7 +182,15 @@ describe('sr rollback', () => {
     })
 
     await expect(
-      program.parseAsync(['node', 'sr', 'rollback', '--id', 'change-1', '-r', 'Revert']),
+      program.parseAsync([
+        'node',
+        'sr',
+        'rollback',
+        '--id',
+        'change-1',
+        '-r',
+        'Revert',
+      ]),
     ).rejects.toThrow('Can only roll back approved changes')
 
     expect(mockApiRequest).not.toHaveBeenCalledWith(

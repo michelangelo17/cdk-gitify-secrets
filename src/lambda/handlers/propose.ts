@@ -45,7 +45,12 @@ export const handler = async (
     if (!parsed.ok) return parsed.error
     const { body } = parsed
 
-    if (!body.project || !body.env || !body.stagingSecretName || !body.reason?.trim()) {
+    if (
+      !body.project ||
+      !body.env ||
+      !body.stagingSecretName ||
+      !body.reason?.trim()
+    ) {
       return error(
         400,
         'Missing required fields: project, env, stagingSecretName, reason',
@@ -87,7 +92,10 @@ export const handler = async (
     const proposedJson = JSON.stringify(stagingData.proposed)
     const proposedSize = Buffer.byteLength(proposedJson, 'utf8')
     if (proposedSize > 60000) {
-      return error(400, `Secret payload too large (${Math.round(proposedSize / 1024)}KB). AWS Secrets Manager limit is 64KB.`)
+      return error(
+        400,
+        `Secret payload too large (${Math.round(proposedSize / 1024)}KB). AWS Secrets Manager limit is 64KB.`,
+      )
     }
 
     const { values: currentValues, versionId: secretVersionId } =
@@ -127,12 +135,14 @@ export const handler = async (
       message: 'Change proposed successfully',
     })
   } catch (e) {
-    console.error(JSON.stringify({
-      handler: 'propose',
-      requestId: event.requestContext.requestId,
-      error: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
-    }))
+    console.error(
+      JSON.stringify({
+        handler: 'propose',
+        requestId: event.requestContext.requestId,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      }),
+    )
     return error(500, 'Internal server error')
   }
 }

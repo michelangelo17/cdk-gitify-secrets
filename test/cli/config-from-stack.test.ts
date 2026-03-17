@@ -21,7 +21,11 @@ describe('configFromStack', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
-    for (const key of ['AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'AWS_SESSION_TOKEN']) {
+    for (const key of [
+      'AWS_ACCESS_KEY_ID',
+      'AWS_SECRET_ACCESS_KEY',
+      'AWS_SESSION_TOKEN',
+    ]) {
       savedEnv[key] = process.env[key]
       delete process.env[key]
     }
@@ -46,7 +50,10 @@ describe('configFromStack', () => {
             { OutputKey: 'UserPoolId', OutputValue: 'us-east-1_abc123' },
             { OutputKey: 'UserPoolClientId', OutputValue: 'client-xyz' },
             { OutputKey: 'SecretPrefix', OutputValue: 'my-prefix/' },
-            { OutputKey: 'FrontendUrl', OutputValue: 'https://dashboard.example.com' },
+            {
+              OutputKey: 'FrontendUrl',
+              OutputValue: 'https://dashboard.example.com',
+            },
           ],
         },
       ],
@@ -68,11 +75,26 @@ describe('configFromStack', () => {
       Stacks: [
         {
           Outputs: [
-            { OutputKey: 'SecretReviewApiUrl96A20576', OutputValue: 'https://xxx.execute-api.us-west-2.amazonaws.com/' },
-            { OutputKey: 'SecretReviewUserPoolId4B18B7C1', OutputValue: 'us-west-2_pXVYocgMs' },
-            { OutputKey: 'SecretReviewUserPoolClientIdD877B95D', OutputValue: '7r4arb941iqcqukpfm00qd04li' },
-            { OutputKey: 'SecretReviewSecretPrefixE22BDC15', OutputValue: 'secret-review/' },
-            { OutputKey: 'SecretReviewFrontendUrl0E9D6828', OutputValue: 'https://d2o338jzjmykgt.cloudfront.net' },
+            {
+              OutputKey: 'SecretReviewApiUrl96A20576',
+              OutputValue: 'https://xxx.execute-api.us-west-2.amazonaws.com/',
+            },
+            {
+              OutputKey: 'SecretReviewUserPoolId4B18B7C1',
+              OutputValue: 'us-west-2_pXVYocgMs',
+            },
+            {
+              OutputKey: 'SecretReviewUserPoolClientIdD877B95D',
+              OutputValue: '7r4arb941iqcqukpfm00qd04li',
+            },
+            {
+              OutputKey: 'SecretReviewSecretPrefixE22BDC15',
+              OutputValue: 'secret-review/',
+            },
+            {
+              OutputKey: 'SecretReviewFrontendUrl0E9D6828',
+              OutputValue: 'https://d2o338jzjmykgt.cloudfront.net',
+            },
           ],
         },
       ],
@@ -130,9 +152,7 @@ describe('configFromStack', () => {
     mockCfnSend.mockResolvedValue({
       Stacks: [
         {
-          Outputs: [
-            { OutputKey: 'UserPoolId', OutputValue: 'us-east-1_abc' },
-          ],
+          Outputs: [{ OutputKey: 'UserPoolId', OutputValue: 'us-east-1_abc' }],
         },
       ],
     })
@@ -158,11 +178,13 @@ describe('configFromStack', () => {
     process.env.AWS_SESSION_TOKEN = 'tok456'
 
     mockCfnSend.mockResolvedValue({
-      Stacks: [{
-        Outputs: [
-          { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
-        ],
-      }],
+      Stacks: [
+        {
+          Outputs: [
+            { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
+          ],
+        },
+      ],
     })
 
     await configFromStack('MyStack', 'us-east-1')
@@ -182,11 +204,13 @@ describe('configFromStack', () => {
     process.env.AWS_SECRET_ACCESS_KEY = 'secret123'
 
     mockCfnSend.mockResolvedValue({
-      Stacks: [{
-        Outputs: [
-          { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
-        ],
-      }],
+      Stacks: [
+        {
+          Outputs: [
+            { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
+          ],
+        },
+      ],
     })
 
     await configFromStack('MyStack', 'us-east-1')
@@ -202,11 +226,13 @@ describe('configFromStack', () => {
 
   test('uses default provider chain when env vars are not set', async () => {
     mockCfnSend.mockResolvedValue({
-      Stacks: [{
-        Outputs: [
-          { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
-        ],
-      }],
+      Stacks: [
+        {
+          Outputs: [
+            { OutputKey: 'ApiUrl', OutputValue: 'https://api.example.com' },
+          ],
+        },
+      ],
     })
 
     await configFromStack('MyStack', 'us-east-1')

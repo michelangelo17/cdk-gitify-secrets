@@ -1,5 +1,11 @@
 import * as path from 'node:path'
-import { Annotations, Duration, RemovalPolicy, CfnOutput, Stack } from 'aws-cdk-lib'
+import {
+  Annotations,
+  Duration,
+  RemovalPolicy,
+  CfnOutput,
+  Stack,
+} from 'aws-cdk-lib'
 import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2'
 import { HttpJwtAuthorizer } from 'aws-cdk-lib/aws-apigatewayv2-authorizers'
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations'
@@ -433,10 +439,10 @@ export class SecretReview extends Construct {
     // ─── VPC Configuration (optional) ────────────────────────────
     let lambdaVpcConfig:
       | {
-        vpc: ec2.IVpc
-        vpcSubnets: ec2.SubnetSelection
-        securityGroups: ec2.ISecurityGroup[]
-      }
+          vpc: ec2.IVpc
+          vpcSubnets: ec2.SubnetSelection
+          securityGroups: ec2.ISecurityGroup[]
+        }
       | undefined
 
     if (props.vpc) {
@@ -468,7 +474,10 @@ export class SecretReview extends Construct {
     }
 
     // ─── Lambda Functions (pre-bundled) ────────────────────────
-    const createHandler = (name: string, handlerDir: string): lambda.Function => {
+    const createHandler = (
+      name: string,
+      handlerDir: string,
+    ): lambda.Function => {
       return new lambda.Function(this, `${name}Fn`, {
         runtime: lambda.Runtime.NODEJS_22_X,
         code: lambda.Code.fromAsset(path.join(HANDLERS_DIR, handlerDir)),
@@ -478,10 +487,10 @@ export class SecretReview extends Construct {
         memorySize: 512,
         ...(lambdaVpcConfig
           ? {
-            vpc: lambdaVpcConfig.vpc,
-            vpcSubnets: lambdaVpcConfig.vpcSubnets,
-            securityGroups: lambdaVpcConfig.securityGroups,
-          }
+              vpc: lambdaVpcConfig.vpc,
+              vpcSubnets: lambdaVpcConfig.vpcSubnets,
+              securityGroups: lambdaVpcConfig.securityGroups,
+            }
           : {}),
       })
     }

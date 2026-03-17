@@ -18,7 +18,9 @@ export const registerLoginCommand = (program: Command): void => {
 
       const email = opts.email || (await prompt('Email: '))
       const password =
-        opts.password ?? process.env.SR_PASSWORD ?? (await prompt('Password: ', true))
+        opts.password ??
+        process.env.SR_PASSWORD ??
+        (await prompt('Password: ', true))
 
       try {
         const client = new CognitoIdentityProviderClient({
@@ -49,7 +51,7 @@ export const registerLoginCommand = (program: Command): void => {
         } else if (result.ChallengeName) {
           throw new CliError(
             `Authentication challenge required: ${result.ChallengeName}\n` +
-            'Please complete the challenge in the AWS Console first (e.g., set a new password).',
+              'Please complete the challenge in the AWS Console first (e.g., set a new password).',
           )
         } else {
           throw new CliError('Authentication failed.')

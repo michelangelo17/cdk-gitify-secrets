@@ -9,7 +9,11 @@ import { createSmClient, resolveSecretPrefix } from '../aws'
 import { resolveChangeId } from '../change-id'
 import { CliError, handleApiError } from '../errors'
 import {
-  RED, GREEN, YELLOW, DIM, RESET,
+  RED,
+  GREEN,
+  YELLOW,
+  DIM,
+  RESET,
   printChangeSummary,
 } from '../formatting'
 
@@ -61,7 +65,9 @@ export const reviewChange = async (
   } catch (e) {
     if (e instanceof CliError) throw e
     if (e instanceof ResourceNotFoundException) {
-      throw new CliError('Staging secret not found. The change may have expired.')
+      throw new CliError(
+        'Staging secret not found. The change may have expired.',
+      )
     }
     throw e
   }
@@ -137,7 +143,8 @@ export const printReview = (
   const modifiedKeys = Object.keys(result.modified)
   const unchangedKeys = Object.keys(result.unchanged)
 
-  const changeCount = addedKeys.length + removedKeys.length + modifiedKeys.length
+  const changeCount =
+    addedKeys.length + removedKeys.length + modifiedKeys.length
   if (changeCount === 0) {
     console.log('\n  No differences detected.')
     return
@@ -145,9 +152,9 @@ export const printReview = (
 
   console.log(
     `\n  ${changeCount} change(s): ` +
-    `${GREEN}+${addedKeys.length}${RESET} ` +
-    `${RED}-${removedKeys.length}${RESET} ` +
-    `${YELLOW}~${modifiedKeys.length}${RESET}\n`,
+      `${GREEN}+${addedKeys.length}${RESET} ` +
+      `${RED}-${removedKeys.length}${RESET} ` +
+      `${YELLOW}~${modifiedKeys.length}${RESET}\n`,
   )
 
   for (const key of addedKeys) {

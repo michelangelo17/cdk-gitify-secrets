@@ -26,8 +26,8 @@ export const registerPullCommand = (program: Command): void => {
       if (!region) {
         throw new CliError(
           'AWS region is not configured.\n' +
-          'Set it via: sr configure --region <region>\n' +
-          'Or set the AWS_REGION environment variable.',
+            'Set it via: sr configure --region <region>\n' +
+            'Or set the AWS_REGION environment variable.',
         )
       }
       const prefix = config.secretPrefix || 'secret-review/'
@@ -55,7 +55,9 @@ export const registerPullCommand = (program: Command): void => {
         try {
           values = JSON.parse(result.SecretString)
         } catch {
-          throw new CliError('Secret value is not valid JSON. Expected key-value format.')
+          throw new CliError(
+            'Secret value is not valid JSON. Expected key-value format.',
+          )
         }
         const keys = Object.keys(values)
 
@@ -82,7 +84,7 @@ export const registerPullCommand = (program: Command): void => {
         if (e instanceof ResourceNotFoundException) {
           throw new CliError(
             `Secret not found: ${secretName}\n` +
-            'This project/environment may not have been initialized yet.',
+              'This project/environment may not have been initialized yet.',
           )
         }
         throw e

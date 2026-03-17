@@ -59,10 +59,10 @@ export const resolveProjectEnv = (
   if (missing.length > 0) {
     throw new CliError(
       `Missing ${missing.join(' and ')}. Provide via:\n` +
-      '  Flag:    sr <command> -p <project> -e <env>\n' +
-      '  Local:   echo \'{"project":"x","env":"y"}\' > .sr.json\n' +
-      '  Global:  sr configure --default-project x --default-env y\n' +
-      '  Wizard:  sr init',
+        '  Flag:    sr <command> -p <project> -e <env>\n' +
+        '  Local:   echo \'{"project":"x","env":"y"}\' > .sr.json\n' +
+        '  Global:  sr configure --default-project x --default-env y\n' +
+        '  Wizard:  sr init',
     )
   }
 

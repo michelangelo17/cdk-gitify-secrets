@@ -96,13 +96,15 @@ export const putSecretValue = async (
   )
 }
 
-export const getStagingSecretValue = async (changeId: string): Promise<
+export const getStagingSecretValue = async (
+  changeId: string,
+): Promise<
   | {
-    proposed: Record<string, string>
-    previous: Record<string, string>
-    project: string
-    env: string
-  }
+      proposed: Record<string, string>
+      previous: Record<string, string>
+      project: string
+      env: string
+    }
   | undefined
 > => {
   const secretName = getStagingSecretName(changeId)

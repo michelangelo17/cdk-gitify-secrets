@@ -22,7 +22,11 @@ program
   .description(
     'cdk-gitify-secrets CLI -- propose, review, and manage environment secrets',
   )
-  .version(JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')).version)
+  .version(
+    JSON.parse(
+      fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'),
+    ).version,
+  )
 
 registerInitCommand(program)
 registerConfigureCommand(program)

@@ -3,7 +3,11 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { assertApproverAccess, assertProjectAccess, getUserEmail } from './shared/auth'
+import {
+  assertApproverAccess,
+  assertProjectAccess,
+  getUserEmail,
+} from './shared/auth'
 import { getChangeById, buildPk, buildSk, putChange } from './shared/dynamo'
 import { parseBody } from './shared/request'
 import { ok, error } from './shared/response'
@@ -90,12 +94,14 @@ export const handler = async (
       env: targetChange.env,
     })
   } catch (e) {
-    console.error(JSON.stringify({
-      handler: 'rollback',
-      requestId: event.requestContext.requestId,
-      error: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
-    }))
+    console.error(
+      JSON.stringify({
+        handler: 'rollback',
+        requestId: event.requestContext.requestId,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      }),
+    )
     return error(500, 'Internal server error')
   }
 }

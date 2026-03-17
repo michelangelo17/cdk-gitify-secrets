@@ -87,8 +87,14 @@ const bundleTask = project.addTask('bundle-lambdas', {
 })
 
 const handlers = [
-  'propose', 'approve', 'reject', 'list-changes',
-  'history', 'rollback', 'diff', 'cleanup',
+  'propose',
+  'approve',
+  'reject',
+  'list-changes',
+  'history',
+  'rollback',
+  'diff',
+  'cleanup',
 ]
 
 for (const handler of handlers) {

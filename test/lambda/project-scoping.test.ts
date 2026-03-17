@@ -62,7 +62,7 @@ process.env.TABLE_NAME = 'test-table'
 process.env.SECRETS_PREFIX = 'secret-review/'
 process.env.PROJECTS_CONFIG = JSON.stringify({
   'backend-api': ['dev', 'production'],
-  'frontend': ['dev', 'production'],
+  frontend: ['dev', 'production'],
 })
 process.env.PREVENT_SELF_APPROVAL = 'true'
 process.env.ENABLE_PROJECT_SCOPING = 'true'
@@ -102,8 +102,8 @@ function makeEvent(
       authorizer: {
         jwt: {
           claims: {
-            'email': 'reviewer@test.com',
-            'sub': 'user-456',
+            email: 'reviewer@test.com',
+            sub: 'user-456',
             'cognito:groups': groups,
           },
           scopes: [],
@@ -170,9 +170,7 @@ describe('Project scoping', () => {
       const event = makeEvent({}, ['frontend'])
       const result = (await handler(event)) as Result
       expect(result.statusCode).toBe(403)
-      expect(JSON.parse(result.body as string).error).toContain(
-        'Access denied',
-      )
+      expect(JSON.parse(result.body as string).error).toContain('Access denied')
     })
   })
 

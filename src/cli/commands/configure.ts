@@ -24,12 +24,15 @@ export const registerConfigureCommand = (program: Command): void => {
 
       if (opts.fromStack) {
         const region =
-          opts.region ?? process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? config.region
+          opts.region ??
+          process.env.AWS_REGION ??
+          process.env.AWS_DEFAULT_REGION ??
+          config.region
 
         if (!region) {
           throw new CliError(
             'Could not determine AWS region.\n' +
-            'Pass --region or set the AWS_REGION environment variable.',
+              'Pass --region or set the AWS_REGION environment variable.',
           )
         }
 

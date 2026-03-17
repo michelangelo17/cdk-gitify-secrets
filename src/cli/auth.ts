@@ -17,12 +17,12 @@ import { CliError } from './errors'
 export const awsCredentials = () =>
   process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY
     ? {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      ...(process.env.AWS_SESSION_TOKEN
-        ? { sessionToken: process.env.AWS_SESSION_TOKEN }
-        : {}),
-    }
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        ...(process.env.AWS_SESSION_TOKEN
+          ? { sessionToken: process.env.AWS_SESSION_TOKEN }
+          : {}),
+      }
     : undefined
 
 const getConfigDir = () =>
@@ -52,7 +52,8 @@ export const loadConfig = (): CliConfig => {
   try {
     const stats = fs.statSync(configFile)
     const mode = stats.mode & 0o777 // eslint-disable-line no-bitwise
-    if (mode & 0o077) { // eslint-disable-line no-bitwise
+    if (mode & 0o077) {
+      // eslint-disable-line no-bitwise
       console.warn(
         `Warning: ${configFile} has permissions ${mode.toString(8)}. ` +
           'This file contains authentication tokens. ' +
@@ -70,9 +71,13 @@ export const loadConfig = (): CliConfig => {
 export const saveConfig = (config: CliConfig): void => {
   const configDir = getConfigDir()
   fs.mkdirSync(configDir, { recursive: true })
-  fs.writeFileSync(path.join(configDir, 'config.json'), JSON.stringify(config, null, 2), {
-    mode: 0o600,
-  })
+  fs.writeFileSync(
+    path.join(configDir, 'config.json'),
+    JSON.stringify(config, null, 2),
+    {
+      mode: 0o600,
+    },
+  )
 }
 
 export const getConfigPath = (): string => getConfigFile()
@@ -83,7 +88,7 @@ export const requireConfig = (fields: string[]): CliConfig => {
   if (missing.length > 0) {
     throw new CliError(
       `Missing config: ${missing.join(', ')}\n` +
-      'Run: sr configure --api-url <URL> --region <REGION> --client-id <ID>',
+        'Run: sr configure --api-url <URL> --region <REGION> --client-id <ID>',
     )
   }
   return config
@@ -140,7 +145,9 @@ export const apiRequest = async (
   body?: Record<string, unknown>,
 ): Promise<Record<string, unknown>> => {
   if (!config.apiUrl) {
-    throw new CliError('API URL is not configured. Run: sr configure --api-url <url>')
+    throw new CliError(
+      'API URL is not configured. Run: sr configure --api-url <url>',
+    )
   }
   const token = await ensureValidToken(config)
   const url = `${config.apiUrl.replace(/\/$/, '')}${urlPath}`
@@ -148,13 +155,13 @@ export const apiRequest = async (
   if (!url.startsWith('https://') && !url.startsWith('http://localhost')) {
     throw new CliError(
       'Refusing to send credentials over insecure HTTP.\n' +
-      'Your API URL must use HTTPS. Update via: sr configure',
+        'Your API URL must use HTTPS. Update via: sr configure',
     )
   }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    Authorization: `Bearer ${token}`,
   }
 
   const fetchOpts: RequestInit = {
@@ -218,7 +225,7 @@ export const configFromStack = async (
 
     const match = OUTPUT_PATTERNS.find(([suffix]) => key.includes(suffix))
     if (match) {
-      (result as Record<string, string>)[match[1]] = output.OutputValue
+      ;(result as Record<string, string>)[match[1]] = output.OutputValue
     }
   }
 

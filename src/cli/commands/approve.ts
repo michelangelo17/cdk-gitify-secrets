@@ -23,7 +23,9 @@ export const registerApproveCommand = (program: Command): void => {
         printReview(result)
 
         if (result.status !== 'pending') {
-          throw new CliError(`Change is already ${result.status}. Cannot approve.`)
+          throw new CliError(
+            `Change is already ${result.status}. Cannot approve.`,
+          )
         }
       }
 

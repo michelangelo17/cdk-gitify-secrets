@@ -1,12 +1,18 @@
 import { Command } from 'commander'
 import { requireConfig, apiRequest } from '../auth'
 import { shortId } from '../change-id'
-import { BOLD, DIM, RESET, formatTimestamp, colorizeStatus, truncate, getFlexColumnWidth } from '../formatting'
+import {
+  BOLD,
+  DIM,
+  RESET,
+  formatTimestamp,
+  colorizeStatus,
+  truncate,
+  getFlexColumnWidth,
+} from '../formatting'
 import { resolveProjectEnv } from '../resolve-defaults'
 
-const printQuickActions = (
-  changes: Array<Record<string, unknown>>,
-): void => {
+const printQuickActions = (changes: Array<Record<string, unknown>>): void => {
   const pending = changes.filter((c) => c.status === 'pending')
   if (pending.length === 0) return
 
@@ -25,7 +31,10 @@ export const registerHistoryCommand = (program: Command): void => {
     .option('-p, --project <project>', 'Project name')
     .option('-e, --env <env>', 'Environment name')
     .option('--all', 'Show all changes across projects')
-    .option('--status <status>', 'Filter by status (pending, approved, rejected)')
+    .option(
+      '--status <status>',
+      'Filter by status (pending, approved, rejected)',
+    )
     .option('--limit <n>', 'Max results (default 20)', '20')
     .option('--next-token <token>', 'Pagination token from a previous call')
     .action(async (opts) => {
@@ -61,7 +70,9 @@ export const registerHistoryCommand = (program: Command): void => {
         for (const h of history) {
           const sid = shortId(String(h.changeId ?? '?'))
           const status = colorizeStatus(String(h.status ?? '?'), 10)
-          const proposed = h.createdAt ? formatTimestamp(String(h.createdAt)) : ''
+          const proposed = h.createdAt
+            ? formatTimestamp(String(h.createdAt))
+            : ''
           const by = String(h.proposedBy ?? '?').substring(0, 24)
           const reason = truncate(String(h.reason ?? ''), reasonWidth)
           console.log(
@@ -78,7 +89,8 @@ export const registerHistoryCommand = (program: Command): void => {
       const params: string[] = []
       if (opts.status) params.push(`status=${encodeURIComponent(opts.status)}`)
       params.push(`limit=${limit}`)
-      if (opts.nextToken) params.push(`nextToken=${encodeURIComponent(opts.nextToken)}`)
+      if (opts.nextToken)
+        params.push(`nextToken=${encodeURIComponent(opts.nextToken)}`)
       if (params.length > 0) queryPath += `?${params.join('&')}`
 
       const data = await apiRequest('GET', queryPath, config)
@@ -100,7 +112,9 @@ export const registerHistoryCommand = (program: Command): void => {
       const fixedWidth = 10 + projWidth + 10 + 12 + 25 + 5 // ID + proj + status + proposed + by + gaps
       const reasonWidth = getFlexColumnWidth(fixedWidth)
 
-      console.log(`\n${BOLD}Changes${opts.project ? ` for project ${opts.project}` : ''}${RESET}\n`)
+      console.log(
+        `\n${BOLD}Changes${opts.project ? ` for project ${opts.project}` : ''}${RESET}\n`,
+      )
       console.log(
         `  ${'ID'.padEnd(10)} ${'Project'.padEnd(projWidth)} ${'Status'.padEnd(10)} ${'Proposed'.padEnd(12)} ${'By'.padEnd(25)} Reason`,
       )

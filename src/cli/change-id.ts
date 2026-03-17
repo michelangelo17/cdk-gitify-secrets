@@ -2,7 +2,8 @@ import type { CliConfig } from './auth'
 import { apiRequest } from './auth'
 import { CliError } from './errors'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const shortId = (changeId: string): string => changeId.substring(0, 8)
 
@@ -26,7 +27,11 @@ export const resolveChangeId = async (
 
   if (opts.latest) {
     const status = opts.latestStatus ?? 'pending'
-    const data = await apiRequest('GET', `/changes?status=${encodeURIComponent(status)}&limit=1`, config)
+    const data = await apiRequest(
+      'GET',
+      `/changes?status=${encodeURIComponent(status)}&limit=1`,
+      config,
+    )
     const changes = data.changes as Array<Record<string, unknown>> | undefined
     if (!changes?.length) {
       throw new CliError(`No ${status} changes found`)
@@ -48,13 +53,14 @@ export const resolveChangeId = async (
   }
 
   if (matches.length > 1) {
-    const lines = matches.map((c) =>
-      `  ${shortId(String(c.changeId))}  ${c.project}/${c.env}  ${c.status}`,
+    const lines = matches.map(
+      (c) =>
+        `  ${shortId(String(c.changeId))}  ${c.project}/${c.env}  ${c.status}`,
     )
     throw new CliError(
       `Ambiguous ID "${input}" matches ${matches.length} changes:\n` +
-      `${lines.join('\n')}\n` +
-      'Provide more characters to narrow it down.',
+        `${lines.join('\n')}\n` +
+        'Provide more characters to narrow it down.',
     )
   }
 

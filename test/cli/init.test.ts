@@ -95,8 +95,10 @@ describe('init command', () => {
     mockConfirm.mockResolvedValueOnce(false) // don't save .sr.json
 
     await runInit(
-      '--stack-name', 'TestStack',
-      '--region', 'us-east-1',
+      '--stack-name',
+      'TestStack',
+      '--region',
+      'us-east-1',
       '--skip-login',
     )
 
@@ -129,8 +131,10 @@ describe('init command', () => {
     mockConfirm.mockResolvedValueOnce(true) // save .sr.json
 
     await runInit(
-      '--stack-name', 'TestStack',
-      '--region', 'us-east-1',
+      '--stack-name',
+      'TestStack',
+      '--region',
+      'us-east-1',
       '--skip-login',
     )
 
@@ -192,7 +196,8 @@ describe('init command', () => {
     mockCognitoSend
       .mockResolvedValueOnce({}) // AdminCreateUser
       .mockResolvedValueOnce({}) // AdminSetUserPassword
-      .mockResolvedValueOnce({ // InitiateAuth
+      .mockResolvedValueOnce({
+        // InitiateAuth
         AuthenticationResult: {
           IdToken: 'new-id-tok',
           RefreshToken: 'new-ref-tok',
@@ -205,11 +210,15 @@ describe('init command', () => {
     mockConfirm.mockResolvedValueOnce(false) // don't save .sr.json
 
     await runInit(
-      '--stack-name', 'TestStack',
-      '--region', 'us-east-1',
+      '--stack-name',
+      'TestStack',
+      '--region',
+      'us-east-1',
       '--create-user',
-      '--email', 'new@test.com',
-      '--password', 'NewPass123!',
+      '--email',
+      'new@test.com',
+      '--password',
+      'NewPass123!',
     )
 
     expect(mockCognitoSend).toHaveBeenCalledTimes(3)
@@ -236,8 +245,10 @@ describe('init command', () => {
     mockConfirm.mockResolvedValueOnce(false)
 
     await runInit(
-      '--stack-name', 'TestStack',
-      '--region', 'us-east-1',
+      '--stack-name',
+      'TestStack',
+      '--region',
+      'us-east-1',
       '--skip-login',
     )
 
@@ -260,11 +271,15 @@ describe('init command', () => {
     mockConfirm.mockResolvedValueOnce(true) // save .sr.json
 
     await runInit(
-      '--stack-name', 'TestStack',
-      '--region', 'us-east-1',
+      '--stack-name',
+      'TestStack',
+      '--region',
+      'us-east-1',
       '--skip-login',
-      '--default-project', 'api',
-      '--default-env', 'prod',
+      '--default-project',
+      'api',
+      '--default-env',
+      'prod',
     )
 
     expect(mockPrompt).not.toHaveBeenCalled()

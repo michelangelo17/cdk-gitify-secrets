@@ -14,7 +14,9 @@ jest.mock('@aws-sdk/client-secrets-manager', () => ({
 }))
 
 jest.mock('@aws-sdk/client-cloudformation', () => SDK_MOCKS.cloudformation())
-jest.mock('@aws-sdk/client-cognito-identity-provider', () => SDK_MOCKS.cognito())
+jest.mock('@aws-sdk/client-cognito-identity-provider', () =>
+  SDK_MOCKS.cognito(),
+)
 
 const mockApiRequest = jest.fn()
 jest.mock('../../src/cli/auth', () => ({
@@ -51,7 +53,10 @@ describe('reviewChange', () => {
       proposedBy: 'alice@test.com',
       reason: 'Update',
       createdAt: '2025-01-01T00:00:00Z',
-      diff: [{ type: 'added', key: 'NEW' }, { type: 'modified', key: 'DB' }],
+      diff: [
+        { type: 'added', key: 'NEW' },
+        { type: 'modified', key: 'DB' },
+      ],
     })
 
     mockSmSend
@@ -61,7 +66,11 @@ describe('reviewChange', () => {
         }),
       })
       .mockResolvedValueOnce({
-        SecretString: JSON.stringify({ DB: 'old-url', KEEP: 'same', OLD: 'gone' }),
+        SecretString: JSON.stringify({
+          DB: 'old-url',
+          KEEP: 'same',
+          OLD: 'gone',
+        }),
       })
 
     const result = await reviewChange('change-1', config)

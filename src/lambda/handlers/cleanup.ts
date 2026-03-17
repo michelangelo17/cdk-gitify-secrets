@@ -1,5 +1,9 @@
 import { getChangeById } from './shared/dynamo'
-import { listStagingSecrets, deleteStagingSecret, STAGING_PREFIX } from './shared/secrets'
+import {
+  listStagingSecrets,
+  deleteStagingSecret,
+  STAGING_PREFIX,
+} from './shared/secrets'
 
 const MAX_AGE_DAYS = 7
 

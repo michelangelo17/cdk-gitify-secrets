@@ -10,7 +10,9 @@ export const resolveSecretPrefix = (config: CliConfig): string =>
 
 export const createSmClient = (config: CliConfig): SecretsManagerClient => {
   if (!config.region) {
-    throw new CliError('AWS region is not configured. Run: sr configure --region <region>')
+    throw new CliError(
+      'AWS region is not configured. Run: sr configure --region <region>',
+    )
   }
   const credentials = awsCredentials()
   return new SecretsManagerClient({

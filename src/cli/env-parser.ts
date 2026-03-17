@@ -1,6 +1,10 @@
 import * as fs from 'node:fs'
 
-const DIFF_SYMBOLS: Record<string, string> = { added: '+', removed: '-', modified: '~' }
+const DIFF_SYMBOLS: Record<string, string> = {
+  added: '+',
+  removed: '-',
+  modified: '~',
+}
 
 export const formatDiffSymbol = (type: string): string =>
   DIFF_SYMBOLS[type] ?? '?'
@@ -80,11 +84,11 @@ export const parseEnvContent = (content: string): Record<string, string> => {
 }
 
 const unescape = (s: string): string =>
-  s.replace(/\\n/g, '\n')
+  s
+    .replace(/\\n/g, '\n')
     .replace(/\\t/g, '\t')
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, '\\')
-
 
 export const writeEnvFile = (
   variables: Record<string, string>,

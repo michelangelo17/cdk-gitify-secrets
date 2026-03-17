@@ -38,12 +38,14 @@ export const handler = async (
       comment: change.comment,
     })
   } catch (e) {
-    console.error(JSON.stringify({
-      handler: 'diff',
-      requestId: event.requestContext.requestId,
-      error: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
-    }))
+    console.error(
+      JSON.stringify({
+        handler: 'diff',
+        requestId: event.requestContext.requestId,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      }),
+    )
     return error(500, 'Internal server error')
   }
 }

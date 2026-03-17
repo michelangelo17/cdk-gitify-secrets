@@ -25,13 +25,18 @@ const cognitoClient = (config: CliConfig) => {
   })
 }
 
-const createUserFlow = async (config: CliConfig, opts: {
-  email?: string
-  password?: string
-}): Promise<void> => {
-  const email = opts.email ?? await prompt('  Email: ')
+const createUserFlow = async (
+  config: CliConfig,
+  opts: {
+    email?: string
+    password?: string
+  },
+): Promise<void> => {
+  const email = opts.email ?? (await prompt('  Email: '))
   const password =
-    opts.password ?? process.env.SR_PASSWORD ?? await prompt('  Choose a password: ', true)
+    opts.password ??
+    process.env.SR_PASSWORD ??
+    (await prompt('  Choose a password: ', true))
 
   const client = cognitoClient(config)
 
@@ -84,13 +89,18 @@ const createUserFlow = async (config: CliConfig, opts: {
   console.log(`  Logged in as ${email}`)
 }
 
-const loginFlow = async (config: CliConfig, opts: {
-  email?: string
-  password?: string
-}): Promise<void> => {
-  const email = opts.email ?? await prompt('  Email: ')
+const loginFlow = async (
+  config: CliConfig,
+  opts: {
+    email?: string
+    password?: string
+  },
+): Promise<void> => {
+  const email = opts.email ?? (await prompt('  Email: '))
   const password =
-    opts.password ?? process.env.SR_PASSWORD ?? await prompt('  Password: ', true)
+    opts.password ??
+    process.env.SR_PASSWORD ??
+    (await prompt('  Password: ', true))
 
   const client = new CognitoIdentityProviderClient({
     region: config.region!,
@@ -107,7 +117,7 @@ const loginFlow = async (config: CliConfig, opts: {
   if (result.ChallengeName) {
     throw new CliError(
       `Authentication challenge required: ${result.ChallengeName}\n` +
-      'Please complete the challenge in the AWS Console first (e.g., set a new password).',
+        'Please complete the challenge in the AWS Console first (e.g., set a new password).',
     )
   }
 
@@ -132,14 +142,20 @@ export const registerInitCommand = (program: Command): void => {
     .description(
       'Interactive setup wizard -- configure, login, and set project defaults',
     )
-    .option('--stack-name <name>', 'CloudFormation stack name to read config from')
+    .option(
+      '--stack-name <name>',
+      'CloudFormation stack name to read config from',
+    )
     .option('--region <region>', 'AWS region')
     .option('--email <email>', 'Login email')
     .option('--password <password>', 'Login password')
     .option('--default-project <project>', 'Default project name')
     .option('--default-env <env>', 'Default environment name')
     .option('--skip-login', 'Skip the login step')
-    .option('--create-user', 'Create a new Cognito user (requires IAM admin access)')
+    .option(
+      '--create-user',
+      'Create a new Cognito user (requires IAM admin access)',
+    )
     .action(async (opts) => {
       console.log('\n  Welcome to cdk-gitify-secrets!\n')
 
@@ -153,7 +169,7 @@ export const registerInitCommand = (program: Command): void => {
       if (!region) {
         throw new CliError(
           'Could not determine AWS region.\n' +
-          'Pass --region or set the AWS_REGION environment variable.',
+            'Pass --region or set the AWS_REGION environment variable.',
         )
       }
 
@@ -193,12 +209,10 @@ export const registerInitCommand = (program: Command): void => {
 
       if (!stackName) {
         config.region = region
-        config.apiUrl =
-          config.apiUrl ?? (await prompt('  API URL: '))
+        config.apiUrl = config.apiUrl ?? (await prompt('  API URL: '))
         config.userPoolId =
           config.userPoolId ?? (await prompt('  User Pool ID: '))
-        config.clientId =
-          config.clientId ?? (await prompt('  Client ID: '))
+        config.clientId = config.clientId ?? (await prompt('  Client ID: '))
 
         const prefix = await prompt(
           `  Secret prefix [${config.secretPrefix ?? 'secret-review/'}]: `,
@@ -230,13 +244,13 @@ export const registerInitCommand = (program: Command): void => {
             const msg = e instanceof Error ? e.message : String(e)
             console.error(`\n  Failed to create user: ${msg}`)
             console.error('  You can create a user manually:')
-            console.error(`    aws cognito-idp admin-create-user --user-pool-id ${config.userPoolId} --username <email> --user-attributes Name=email,Value=<email> Name=email_verified,Value=true`)
+            console.error(
+              `    aws cognito-idp admin-create-user --user-pool-id ${config.userPoolId} --username <email> --user-attributes Name=email,Value=<email> Name=email_verified,Value=true`,
+            )
             console.error('  Then run: npx sr login\n')
           }
         } else {
-          const wantsLogin = await confirm(
-            '  Log in with an existing account?',
-          )
+          const wantsLogin = await confirm('  Log in with an existing account?')
 
           if (wantsLogin) {
             try {
@@ -256,7 +270,8 @@ export const registerInitCommand = (program: Command): void => {
 
       // ── Step 3: Project defaults ──────────────────────────────
       const existing = loadLocalConfig()
-      const defaultProject = opts.defaultProject ?? existing.project ?? config.defaultProject
+      const defaultProject =
+        opts.defaultProject ?? existing.project ?? config.defaultProject
       const defaultEnv = opts.defaultEnv ?? existing.env ?? config.defaultEnv
 
       const projectLabel = defaultProject
@@ -279,7 +294,9 @@ export const registerInitCommand = (program: Command): void => {
 
         if (saveLocal) {
           const filePath = saveLocalConfig({ project, env })
-          console.log(`  Created ${filePath} (project: ${project}, env: ${env})`)
+          console.log(
+            `  Created ${filePath} (project: ${project}, env: ${env})`,
+          )
         }
 
         config.defaultProject = project

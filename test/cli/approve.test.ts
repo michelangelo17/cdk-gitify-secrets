@@ -3,7 +3,9 @@ import { SDK_MOCKS, DEFAULT_TEST_CONFIG } from './_helpers'
 
 jest.mock('@aws-sdk/client-secrets-manager', () => SDK_MOCKS.secretsManager())
 jest.mock('@aws-sdk/client-cloudformation', () => SDK_MOCKS.cloudformation())
-jest.mock('@aws-sdk/client-cognito-identity-provider', () => SDK_MOCKS.cognito())
+jest.mock('@aws-sdk/client-cognito-identity-provider', () =>
+  SDK_MOCKS.cognito(),
+)
 
 const mockApiRequest = jest.fn()
 jest.mock('../../src/cli/auth', () => ({
@@ -52,7 +54,9 @@ describe('sr approve', () => {
       env: 'dev',
     })
     mockConfirm.mockResolvedValue(true)
-    mockApiRequest.mockResolvedValue({ message: 'Change change-1 approved and applied' })
+    mockApiRequest.mockResolvedValue({
+      message: 'Change change-1 approved and applied',
+    })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
     await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1'])
@@ -62,7 +66,10 @@ describe('sr approve', () => {
       expect.objectContaining({ id: 'change-1' }),
       expect.any(Object),
     )
-    expect(mockReviewChange).toHaveBeenCalledWith('change-1', expect.any(Object))
+    expect(mockReviewChange).toHaveBeenCalledWith(
+      'change-1',
+      expect.any(Object),
+    )
     expect(mockPrintReview).toHaveBeenCalled()
     expect(mockConfirm).toHaveBeenCalled()
     expect(mockApiRequest).toHaveBeenCalledWith(
@@ -126,7 +133,15 @@ describe('sr approve', () => {
     mockApiRequest.mockResolvedValue({ message: 'Approved' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1', '--skip-review', '-y'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'approve',
+      '--id',
+      'change-1',
+      '--skip-review',
+      '-y',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockReviewChange).not.toHaveBeenCalled()
@@ -142,7 +157,14 @@ describe('sr approve', () => {
     mockApiRequest.mockResolvedValue({ message: 'Approved' })
 
     const consoleSpy = jest.spyOn(console, 'log').mockImplementation()
-    await program.parseAsync(['node', 'sr', 'approve', '--id', 'change-1', '-y'])
+    await program.parseAsync([
+      'node',
+      'sr',
+      'approve',
+      '--id',
+      'change-1',
+      '-y',
+    ])
     consoleSpy.mockRestore()
 
     expect(mockConfirm).not.toHaveBeenCalled()

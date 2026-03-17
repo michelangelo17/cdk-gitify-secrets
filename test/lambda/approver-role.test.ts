@@ -90,8 +90,8 @@ function makeEvent(
       authorizer: {
         jwt: {
           claims: {
-            'email': email,
-            'sub': 'user-456',
+            email: email,
+            sub: 'user-456',
             'cognito:groups': groups,
           },
           scopes: [],
@@ -219,8 +219,8 @@ describe('Approver role', () => {
           authorizer: {
             jwt: {
               claims: {
-                'email': 'reviewer@test.com',
-                'sub': 'user-456',
+                email: 'reviewer@test.com',
+                sub: 'user-456',
                 'cognito:groups': ['backend-api'],
               },
               scopes: [],
@@ -244,7 +244,8 @@ describe('Approver role', () => {
 
       let assertApproverAccess: typeof import('../../src/lambda/handlers/shared/auth').assertApproverAccess
       jest.isolateModules(() => {
-        assertApproverAccess = require('../../src/lambda/handlers/shared/auth').assertApproverAccess
+        assertApproverAccess =
+          require('../../src/lambda/handlers/shared/auth').assertApproverAccess
       })
 
       const event = makeEvent([])

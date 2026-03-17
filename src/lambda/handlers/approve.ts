@@ -2,7 +2,11 @@ import type {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
 } from 'aws-lambda'
-import { assertApproverAccess, assertProjectAccess, getUserEmail } from './shared/auth'
+import {
+  assertApproverAccess,
+  assertProjectAccess,
+  getUserEmail,
+} from './shared/auth'
 import { config } from './shared/config'
 import { getChangeById, updateChangeStatus } from './shared/dynamo'
 import { parseBody } from './shared/request'
@@ -53,7 +57,11 @@ export const handler = async (
       change.env,
     )
 
-    if (change.secretVersionId && previousVersionId && previousVersionId !== change.secretVersionId) {
+    if (
+      change.secretVersionId &&
+      previousVersionId &&
+      previousVersionId !== change.secretVersionId
+    ) {
       return error(
         409,
         'Conflict: the secret was modified since this change was proposed. Please reject and re-propose.',
@@ -82,10 +90,7 @@ export const handler = async (
         },
       )
     } catch (e) {
-      if (
-        e instanceof Error &&
-        e.name === 'ConditionalCheckFailedException'
-      ) {
+      if (e instanceof Error && e.name === 'ConditionalCheckFailedException') {
         return error(409, 'Change was already reviewed by another user')
       }
       throw e
@@ -101,12 +106,14 @@ export const handler = async (
       env: change.env,
     })
   } catch (e) {
-    console.error(JSON.stringify({
-      handler: 'approve',
-      requestId: event.requestContext.requestId,
-      error: e instanceof Error ? e.message : String(e),
-      stack: e instanceof Error ? e.stack : undefined,
-    }))
+    console.error(
+      JSON.stringify({
+        handler: 'approve',
+        requestId: event.requestContext.requestId,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      }),
+    )
     return error(500, 'Internal server error')
   }
 }
